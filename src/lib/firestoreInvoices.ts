@@ -13,7 +13,7 @@ import { firebaseDb } from './firebase'
 import { getFinancialYearLabel } from './financialYear'
 import type { InvoiceFormData, InvoiceRecord } from '../types/invoice'
 import { EMPTY_INVOICE_FORM, ensureLineItems } from '../types/invoice'
-import { createEmptyLineItem, type QuotationLineItem } from '../types/quotation'
+import { createEmptyLineItem, type QuotationLineItem, type SewingCost } from '../types/quotation'
 
 const COLL = 'invoices'
 
@@ -28,6 +28,17 @@ function normalizeLineItems(raw: unknown): QuotationLineItem[] {
       unitPrice: String(row.unitPrice ?? ''),
     }))
   return ensureLineItems(rows)
+}
+
+function normalizeSewingCost(raw: unknown): SewingCost {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const r = raw as Record<string, unknown>
+    return {
+      qty: typeof r.qty === 'string' ? r.qty : '',
+      unitPrice: typeof r.unitPrice === 'string' ? r.unitPrice : '',
+    }
+  }
+  return { qty: '', unitPrice: '' }
 }
 
 function normalizeInvoice(id: string, raw: Record<string, unknown> | undefined): InvoiceRecord | null {
@@ -73,6 +84,7 @@ function normalizeInvoice(id: string, raw: Record<string, unknown> | undefined):
     ...EMPTY_INVOICE_FORM,
     ...partial,
     lineItems: normalizeLineItems(partial.lineItems),
+    sewingCost: normalizeSewingCost(partial.sewingCost),
   }
 
   return {
@@ -97,6 +109,7 @@ export async function saveInvoiceToFirestore(record: InvoiceRecord): Promise<voi
     customerAddress: record.data.customerAddress,
     advance: record.data.advance,
     lineItems: ensureLineItems(record.data.lineItems),
+    sewingCost: record.data.sewingCost ?? { qty: '', unitPrice: '' },
   }
   await setDoc(
     doc(firebaseDb, COLL, record.id),

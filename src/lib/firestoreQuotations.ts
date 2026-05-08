@@ -18,6 +18,7 @@ import {
   type QuotationFormData,
   type QuotationLineItem,
   type QuotationRecord,
+  type SewingCost,
 } from '../types/quotation'
 
 const COLL = 'quotations'
@@ -33,6 +34,17 @@ function normalizeLineItems(raw: unknown): QuotationLineItem[] {
       unitPrice: String(row.unitPrice ?? ''),
     }))
   return ensureLineItems(rows)
+}
+
+function normalizeSewingCost(raw: unknown): SewingCost {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const r = raw as Record<string, unknown>
+    return {
+      qty: typeof r.qty === 'string' ? r.qty : '',
+      unitPrice: typeof r.unitPrice === 'string' ? r.unitPrice : '',
+    }
+  }
+  return { qty: '', unitPrice: '' }
 }
 
 function normalizeSecondaryLineItems(raw: unknown): QuotationLineItem[] {
@@ -92,6 +104,8 @@ function normalizeQuotation(id: string, raw: Record<string, unknown> | undefined
     ...partial,
     lineItems: normalizeLineItems(partial.lineItems),
     lineItemsSecondary: normalizeSecondaryLineItems(partial.lineItemsSecondary),
+    sewingCost: normalizeSewingCost(partial.sewingCost),
+    sewingCostSecondary: normalizeSewingCost(partial.sewingCostSecondary),
   }
 
   return {
@@ -117,6 +131,8 @@ export async function saveQuotationToFirestore(record: QuotationRecord): Promise
     subject: record.data.subject,
     lineItems: ensureLineItems(record.data.lineItems),
     lineItemsSecondary: record.data.lineItemsSecondary ?? [],
+    sewingCost: record.data.sewingCost ?? { qty: '', unitPrice: '' },
+    sewingCostSecondary: record.data.sewingCostSecondary ?? { qty: '', unitPrice: '' },
   }
   await setDoc(
     doc(firebaseDb, COLL, record.id),

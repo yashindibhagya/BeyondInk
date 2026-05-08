@@ -1,6 +1,6 @@
 import { formatDateDotDMY } from '../../lib/dateDisplay'
-import type { QuotationLineItem } from '../../types/quotation'
-import { formatLineAmount, sumLineAmounts } from '../../types/quotation'
+import type { QuotationLineItem, SewingCost } from '../../types/quotation'
+import { formatLineAmount, lineItemGrossAmount, sumLineAmounts } from '../../types/quotation'
 
 type Props = {
   letterheadUrl: string
@@ -10,6 +10,8 @@ type Props = {
   introText: string
   lineItems: QuotationLineItem[]
   lineItemsSecondary?: QuotationLineItem[]
+  sewingCost?: SewingCost
+  sewingCostSecondary?: SewingCost
   paymentNote: string
   closingNote: string
   signatoryLine: string
@@ -24,13 +26,25 @@ export function QuotationTemplate({
   introText,
   lineItems,
   lineItemsSecondary = [],
+  sewingCost,
+  sewingCostSecondary,
   paymentNote,
   closingNote,
   signatoryLine,
   signatoryName,
 }: Props) {
-  const total = sumLineAmounts(lineItems)
-  const totalSecondary = sumLineAmounts(lineItemsSecondary)
+  const sewingCostItem = sewingCost?.qty.trim() && sewingCost?.unitPrice.trim()
+    ? { id: 'sewing-cost', description: 'Sewing cost', qty: sewingCost.qty, unitPrice: sewingCost.unitPrice }
+    : null
+  const sewingCostSecondaryItem = sewingCostSecondary?.qty.trim() && sewingCostSecondary?.unitPrice.trim()
+    ? { id: 'sewing-cost-2', description: 'Sewing cost', qty: sewingCostSecondary.qty, unitPrice: sewingCostSecondary.unitPrice }
+    : null
+
+  const sewingCostGross = sewingCostItem ? lineItemGrossAmount(sewingCostItem) : 0
+  const sewingCostSecondaryGross = sewingCostSecondaryItem ? lineItemGrossAmount(sewingCostSecondaryItem) : 0
+
+  const total = sumLineAmounts(lineItems) + sewingCostGross
+  const totalSecondary = sumLineAmounts(lineItemsSecondary) + sewingCostSecondaryGross
   const totalFormatted =
     total > 0
       ? total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -99,6 +113,14 @@ export function QuotationTemplate({
                 </tr>
               )
             })}
+            {sewingCostItem ? (
+              <tr>
+                <td className="border border-black px-2 py-2 align-top whitespace-pre-wrap">Sewing cost</td>
+                <td className="border border-black px-2 py-2 text-center align-top tabular-nums">{sewingCostItem.qty}</td>
+                <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{sewingCostItem.unitPrice}</td>
+                <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{formatLineAmount(sewingCostItem.qty, sewingCostItem.unitPrice) || '—'}</td>
+              </tr>
+            ) : null}
             <tr className="font-semibold">
               <td colSpan={3} className="border border-black px-2 py-2 text-right uppercase">
                 Total
@@ -134,6 +156,14 @@ export function QuotationTemplate({
                     </tr>
                   )
                 })}
+                {sewingCostSecondaryItem ? (
+                  <tr>
+                    <td className="border border-black px-2 py-2 align-top whitespace-pre-wrap">Sewing cost</td>
+                    <td className="border border-black px-2 py-2 text-center align-top tabular-nums">{sewingCostSecondaryItem.qty}</td>
+                    <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{sewingCostSecondaryItem.unitPrice}</td>
+                    <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{formatLineAmount(sewingCostSecondaryItem.qty, sewingCostSecondaryItem.unitPrice) || '—'}</td>
+                  </tr>
+                ) : null}
                 <tr className="font-semibold">
                   <td colSpan={3} className="border border-black px-2 py-2 text-right uppercase">
                     Total

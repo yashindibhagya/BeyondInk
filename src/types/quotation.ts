@@ -5,12 +5,19 @@ export type QuotationLineItem = {
   unitPrice: string
 }
 
+export type SewingCost = {
+  qty: string
+  unitPrice: string
+}
+
 export type QuotationDraft = {
   quotationDate: string
   customerAddress: string
   subject: string
   lineItems: QuotationLineItem[]
   lineItemsSecondary: QuotationLineItem[]
+  sewingCost: SewingCost
+  sewingCostSecondary: SewingCost
   paymentNote: string
   closingNote: string
   signatoryLine: string
@@ -28,6 +35,8 @@ export const EMPTY_QUOTATION_FORM: QuotationFormData = {
   introText: '',
   lineItems: [],
   lineItemsSecondary: [],
+  sewingCost: { qty: '', unitPrice: '' },
+  sewingCostSecondary: { qty: '', unitPrice: '' },
   paymentNote: '',
   closingNote: '',
   signatoryLine: '',

@@ -23,6 +23,7 @@ import {
   type QuotationFormData,
   type QuotationLineItem,
   type QuotationRecord,
+  type SewingCost,
 } from '../types/quotation'
 
 const DEFAULT_INTRO =
@@ -57,6 +58,8 @@ export function QuotationPage() {
   const [introText, setIntroText] = useState(DEFAULT_INTRO)
   const [lineItems, setLineItems] = useState<QuotationLineItem[]>(() => [createEmptyLineItem()])
   const [lineItemsSecondary, setLineItemsSecondary] = useState<QuotationLineItem[]>([])
+  const [sewingCost, setSewingCost] = useState<SewingCost>({ qty: '', unitPrice: '' })
+  const [sewingCostSecondary, setSewingCostSecondary] = useState<SewingCost>({ qty: '', unitPrice: '' })
   const [paymentNote, setPaymentNote] = useState(DEFAULT_PAYMENT)
   const [closingNote, setClosingNote] = useState(DEFAULT_CLOSING)
   const [signatoryLine, setSignatoryLine] = useState('MAW PRINTING')
@@ -88,6 +91,8 @@ export function QuotationPage() {
     setIntroText(DEFAULT_INTRO)
     setLineItems([createEmptyLineItem()])
     setLineItemsSecondary([])
+    setSewingCost({ qty: '', unitPrice: '' })
+    setSewingCostSecondary({ qty: '', unitPrice: '' })
     setPaymentNote(DEFAULT_PAYMENT)
     setClosingNote(DEFAULT_CLOSING)
     setSignatoryLine('MAW PRINTING')
@@ -102,6 +107,8 @@ export function QuotationPage() {
     setIntroText(d.introText?.trim() ? d.introText : DEFAULT_INTRO)
     setLineItems(d.lineItems?.length ? d.lineItems : [createEmptyLineItem()])
     setLineItemsSecondary(d.lineItemsSecondary?.length ? d.lineItemsSecondary : [])
+    setSewingCost(d.sewingCost ?? { qty: '', unitPrice: '' })
+    setSewingCostSecondary(d.sewingCostSecondary ?? { qty: '', unitPrice: '' })
     setPaymentNote(d.paymentNote?.trim() ? d.paymentNote : DEFAULT_PAYMENT)
     setClosingNote(d.closingNote?.trim() ? d.closingNote : DEFAULT_CLOSING)
     setSignatoryLine(d.signatoryLine?.trim() ? d.signatoryLine : 'MAW PRINTING')
@@ -205,6 +212,8 @@ export function QuotationPage() {
       introText,
       lineItems,
       lineItemsSecondary,
+      sewingCost,
+      sewingCostSecondary,
       paymentNote,
       closingNote,
       signatoryLine,
@@ -217,6 +226,8 @@ export function QuotationPage() {
     introText,
     lineItems,
     lineItemsSecondary,
+    sewingCost,
+    sewingCostSecondary,
     paymentNote,
     closingNote,
     signatoryLine,
@@ -429,6 +440,28 @@ export function QuotationPage() {
                 </div>
               </div>
             ))}
+            <div className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_5rem_7rem_auto] md:items-end">
+              <FormField label="Sewing cost" htmlFor="sc-desc">
+                <div className="flex min-h-[5rem] items-center rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  Sewing cost
+                </div>
+              </FormField>
+              <FormField label="Qty" htmlFor="sc-qty">
+                <Input
+                  id="sc-qty"
+                  value={sewingCost.qty}
+                  onChange={(e) => setSewingCost((c) => ({ ...c, qty: e.target.value }))}
+                />
+              </FormField>
+              <FormField label="Unit price" htmlFor="sc-price">
+                <Input
+                  id="sc-price"
+                  value={sewingCost.unitPrice}
+                  onChange={(e) => setSewingCost((c) => ({ ...c, unitPrice: e.target.value }))}
+                />
+              </FormField>
+              <div className="md:pb-2" />
+            </div>
           </div>
         </div>
 
@@ -487,6 +520,28 @@ export function QuotationPage() {
                   </div>
                 </div>
               ))}
+              <div className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_5rem_7rem_auto] md:items-end">
+                <FormField label="Sewing cost" htmlFor="sc2-desc">
+                  <div className="flex min-h-[5rem] items-center rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    Sewing cost
+                  </div>
+                </FormField>
+                <FormField label="Qty" htmlFor="sc2-qty">
+                  <Input
+                    id="sc2-qty"
+                    value={sewingCostSecondary.qty}
+                    onChange={(e) => setSewingCostSecondary((c) => ({ ...c, qty: e.target.value }))}
+                  />
+                </FormField>
+                <FormField label="Unit price" htmlFor="sc2-price">
+                  <Input
+                    id="sc2-price"
+                    value={sewingCostSecondary.unitPrice}
+                    onChange={(e) => setSewingCostSecondary((c) => ({ ...c, unitPrice: e.target.value }))}
+                  />
+                </FormField>
+                <div className="md:pb-2" />
+              </div>
             </div>
           ) : null}
         </div>
@@ -522,6 +577,8 @@ export function QuotationPage() {
           introText={introText}
           lineItems={lineItems}
           lineItemsSecondary={lineItemsSecondary}
+          sewingCost={sewingCost}
+          sewingCostSecondary={sewingCostSecondary}
           paymentNote={paymentNote}
           closingNote={closingNote}
           signatoryLine={signatoryLine}

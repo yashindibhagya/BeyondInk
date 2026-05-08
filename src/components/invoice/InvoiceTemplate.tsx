@@ -1,5 +1,5 @@
-import type { QuotationLineItem } from '../../types/quotation'
-import { formatLineAmount, parseAmount, sumLineAmounts } from '../../types/quotation'
+import type { QuotationLineItem, SewingCost } from '../../types/quotation'
+import { formatLineAmount, lineItemGrossAmount, parseAmount, sumLineAmounts } from '../../types/quotation'
 
 type Props = {
   letterheadUrl: string
@@ -7,6 +7,7 @@ type Props = {
   customerAddress: string
   introText: string
   lineItems: QuotationLineItem[]
+  sewingCost?: SewingCost
   advance: string
   closingNote: string
   signatoryLine: string
@@ -24,12 +25,17 @@ export function InvoiceTemplate({
   customerAddress,
   introText,
   lineItems,
+  sewingCost,
   advance,
   closingNote,
   signatoryLine,
   signatoryName,
 }: Props) {
-  const total = sumLineAmounts(lineItems)
+  const sewingCostItem = sewingCost?.qty.trim() && sewingCost?.unitPrice.trim()
+    ? { id: 'sewing-cost', description: 'Sewing cost', qty: sewingCost.qty, unitPrice: sewingCost.unitPrice }
+    : null
+  const sewingCostGross = sewingCostItem ? lineItemGrossAmount(sewingCostItem) : 0
+  const total = sumLineAmounts(lineItems) + sewingCostGross
   const advanceNum = parseAmount(advance)
   const totalFormatted = formatMoney(total)
   const advanceFormatted = advance.trim() && advanceNum > 0 ? formatMoney(advanceNum) : '—'
@@ -91,6 +97,14 @@ export function InvoiceTemplate({
                 </tr>
               )
             })}
+            {sewingCostItem ? (
+              <tr>
+                <td className="border border-black px-2 py-2 align-top whitespace-pre-wrap">Sewing cost</td>
+                <td className="border border-black px-2 py-2 text-center align-top tabular-nums">{sewingCostItem.qty}</td>
+                <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{sewingCostItem.unitPrice}</td>
+                <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{formatLineAmount(sewingCostItem.qty, sewingCostItem.unitPrice) || '—'}</td>
+              </tr>
+            ) : null}
             <tr className="font-semibold">
               <td colSpan={3} className="border border-black px-2 py-2 text-right uppercase">
                 Total

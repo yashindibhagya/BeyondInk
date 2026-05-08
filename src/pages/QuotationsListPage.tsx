@@ -4,83 +4,104 @@ import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
-import { getCurrentFinancialYearLabel, isWithinLastNDays } from '../lib/financialYear'
+import { formatDateDotDMY, formatDateTimeDotDMY } from '../lib/dateDisplay'
 import { firebaseDb } from '../lib/firebase'
-import { formatDateTimeDotDMY } from '../lib/dateDisplay'
+import { getCurrentFinancialYearLabel, isWithinLastNDays } from '../lib/financialYear'
 import { useQuotationsStore } from '../store/useQuotationsStore'
 import { useSubmissionsStore } from '../store/useSubmissionsStore'
+import type { QuotationRecord } from '../types/quotation'
+import type { Submission } from '../types/survey'
 
 const PRINT_TYPE_OPTIONS = ['All', 'Embroidery', 'Sublimation', 'Screen Print', 'Sticker']
+
+function cardLines(q: QuotationRecord, submissionById: Map<string, Submission>) {
+  const sub = q.submissionId ? submissionById.get(q.submissionId) : undefined
+  if (sub) {
+    return {
+      title: sub.data.orderName,
+      subtitle: `Job: ${sub.data.jobNo} - ${sub.data.ownerName}`,
+      metaType: sub.data.printType || 'No type',
+    }
+  }
+  const firstAddrLine =
+    q.data.customerAddress
+      ?.split('\n')
+      .map((l) => l.trim())
+      .find(Boolean) ?? ''
+  const subjectLabel = q.data.subject?.trim() || ''
+  return {
+    title: firstAddrLine || subjectLabel || 'Standalone quotation',
+    subtitle: q.submissionId ? 'Linked order not found' : 'No linked order',
+    metaType: '—',
+  }
+}
+
 export function QuotationsListPage() {
-  const submissions = useSubmissionsStore((s) => s.submissions)
-  const deleteSubmission = useSubmissionsStore((s) => s.deleteSubmission)
-  const submissionsReady = useSubmissionsStore((s) => s.firestoreReady)
-  const firestoreError = useSubmissionsStore((s) => s.firestoreError)
   const quotations = useQuotationsStore((s) => s.quotations)
-  const quotationsReady = useQuotationsStore((s) => s.firestoreReady)
-  const quotationsError = useQuotationsStore((s) => s.firestoreError)
+  const deleteQuotation = useQuotationsStore((s) => s.deleteQuotation)
+  const firestoreReady = useQuotationsStore((s) => s.firestoreReady)
+  const firestoreError = useQuotationsStore((s) => s.firestoreError)
+  const submissions = useSubmissionsStore((s) => s.submissions)
   const [query, setQuery] = useState('')
   const [printType, setPrintType] = useState('All')
   const [timeFilter, setTimeFilter] = useState('all')
   const currentFinancialYear = useMemo(() => getCurrentFinancialYearLabel(), [])
 
-  const quotationSubmissions = useMemo(() => {
-    const byId = new Map(submissions.map((s) => [s.id, s] as const))
-    return quotations
-      .map((q) => {
-        const linked = q.submissionId ? byId.get(q.submissionId) : undefined
-        if (!linked && byId.has(q.id)) {
-          return byId.get(q.id) ?? null
-        }
-        return linked ?? null
-      })
-      .filter((s): s is NonNullable<typeof s> => Boolean(s))
-  }, [quotations, submissions])
-
-  const uniqueQuotationSubmissions = useMemo(() => {
-    const seen = new Set<string>()
-    return quotationSubmissions.filter((s) => {
-      if (seen.has(s.id)) return false
-      seen.add(s.id)
-      return true
-    })
-  }, [quotationSubmissions])
-
   const financialYearOptions = useMemo(() => {
     const years = new Set<string>()
-    for (const s of uniqueQuotationSubmissions) {
-      if (s.financialYear?.trim()) years.add(s.financialYear)
+    for (const q of quotations) {
+      if (q.financialYear?.trim()) years.add(q.financialYear)
     }
     return Array.from(years).sort((a, b) => b.localeCompare(a))
-  }, [uniqueQuotationSubmissions])
+  }, [quotations])
+
+  const submissionById = useMemo(() => {
+    const m = new Map<string, (typeof submissions)[0]>()
+    for (const s of submissions) m.set(s.id, s)
+    return m
+  }, [submissions])
 
   const filtered = useMemo(() => {
-    let list = uniqueQuotationSubmissions
+    let list = [...quotations]
     const q = query.trim().toLowerCase()
     if (q) {
-      list = list.filter(
-        (s) =>
-          s.data.orderName.toLowerCase().includes(q) ||
-          s.data.jobNo.toLowerCase().includes(q) ||
-          s.data.ownerName.toLowerCase().includes(q) ||
-          s.data.fabric.toLowerCase().includes(q),
-      )
+      list = list.filter((quot) => {
+        const addr = (quot.data.customerAddress ?? '').toLowerCase()
+        const subject = (quot.data.subject ?? '').toLowerCase()
+        const desc0 = quot.data.lineItems?.[0]?.description?.toLowerCase() ?? ''
+        if (addr.includes(q) || subject.includes(q) || desc0.includes(q) || quot.id.toLowerCase().includes(q))
+          return true
+        const sub = quot.submissionId ? submissionById.get(quot.submissionId) : undefined
+        if (!sub) return false
+        const d = sub.data
+        return (
+          d.orderName.toLowerCase().includes(q) ||
+          d.jobNo.toLowerCase().includes(q) ||
+          d.ownerName.toLowerCase().includes(q) ||
+          d.fabric.toLowerCase().includes(q)
+        )
+      })
     }
     if (printType !== 'All') {
-      list = list.filter((s) => s.data.printType.toLowerCase().includes(printType.toLowerCase()))
+      list = list.filter((quot) => {
+        if (!quot.submissionId) return false
+        const sub = submissionById.get(quot.submissionId)
+        return sub?.data.printType.toLowerCase().includes(printType.toLowerCase())
+      })
     }
     if (timeFilter === 'last7days') {
-      list = list.filter((s) => isWithinLastNDays(s.createdAt, 7))
+      list = list.filter((quot) => isWithinLastNDays(quot.updatedAt, 7))
     } else if (timeFilter === 'previousFy') {
-      list = list.filter((s) => s.financialYear !== currentFinancialYear)
+      list = list.filter((quot) => quot.financialYear !== currentFinancialYear)
     } else if (timeFilter.startsWith('fy:')) {
       const year = timeFilter.slice(3)
-      list = list.filter((s) => s.financialYear === year)
+      list = list.filter((quot) => quot.financialYear === year)
     }
+    list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     return list
-  }, [uniqueQuotationSubmissions, query, printType, timeFilter, currentFinancialYear])
+  }, [quotations, submissionById, query, printType, timeFilter, currentFinancialYear])
 
-  if (firebaseDb && (!submissionsReady || !quotationsReady)) {
+  if (firebaseDb && !firestoreReady) {
     return (
       <div className="space-y-8">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Quotations</h1>
@@ -95,20 +116,16 @@ export function QuotationsListPage() {
     <div className="space-y-8">
       {firestoreError ? (
         <Card className="border-amber-200 bg-amber-50 py-3 text-sm text-amber-900">
-          Firebase: {firestoreError}. Deploy Firestore rules (<code className="rounded bg-amber-100 px-1">firebase deploy
-          --only firestore:rules</code>) and confirm the database exists.
-        </Card>
-      ) : null}
-      {quotationsError ? (
-        <Card className="border-amber-200 bg-amber-50 py-3 text-sm text-amber-900">
-          Quotations: {quotationsError}
+          Firebase (quotations): {firestoreError}. Deploy Firestore rules (
+          <code className="rounded bg-amber-100 px-1">firebase deploy --only firestore:rules</code>) and confirm the
+          database exists.
         </Card>
       ) : null}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Quotations</h1>
           <p className="mt-1 text-sm text-slate-600">
-            {filtered.length} of {uniqueQuotationSubmissions.length} shown
+            {filtered.length} of {quotations.length} shown
             {firebaseDb ? ' — saved in Firestore.' : ' — stored only on this device.'}
           </p>
         </div>
@@ -123,7 +140,7 @@ export function QuotationsListPage() {
             </label>
             <Input
               id="q-search"
-              placeholder="Order name, Job No, Owner, Fabric"
+              placeholder="Customer address, Subject, Order name, Job No, Owner, Fabric"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -164,54 +181,63 @@ export function QuotationsListPage() {
       {filtered.length === 0 ? (
         <Card className="text-center">
           <p className="text-slate-600">
-            {uniqueQuotationSubmissions.length === 0
-              ? 'No saved quotations yet. Open a quotation and click Save quotation.'
+            {quotations.length === 0
+              ? 'No quotations yet. Open a quotation from an order or create one with New quotation, then save.'
               : 'No matches for your filters.'}
           </p>
-          {uniqueQuotationSubmissions.length === 0 ? (
+          {quotations.length === 0 ? (
             <div className="mt-4">
-              <Button to="/">Go to dashboard</Button>
+              <Button to="/quotation">New quotation</Button>
             </div>
           ) : null}
         </Card>
       ) : (
         <ul className="space-y-3">
-          {filtered.map((s) => (
-            <li key={s.id}>
-              <Card padding="sm" className="transition hover:border-slate-300">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <Link to={`/quotation/${s.id}`} className="min-w-0 flex-1 group">
-                    <p className="font-medium text-slate-900 group-hover:text-blue-600">{s.data.orderName}</p>
-                    <p className="mt-1 truncate text-sm text-slate-500">
-                      Job: {s.data.jobNo} - {s.data.ownerName}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-slate-400">
-                      {s.data.printType || 'No type'} — {formatDateTimeDotDMY(s.createdAt)}
-                    </p>
-                  </Link>
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    <Button to={`/quotation/${s.id}`} variant="secondary">
-                      View
-                    </Button>
-                    <Button to={`/submission/${s.id}/edit`} variant="secondary">
-                      Edit
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onClick={() => {
-                        if (!window.confirm('Delete this order? Its quotation will no longer be available here.')) return
-                        void deleteSubmission(s.id).catch(() => {
-                          window.alert('Could not delete. Check Firebase rules and your connection.')
-                        })
-                      }}
-                    >
-                      Delete
-                    </Button>
+          {filtered.map((quot) => {
+            const lines = cardLines(quot, submissionById)
+            const linkedOrder = quot.submissionId ? submissionById.get(quot.submissionId) : undefined
+            const dateLabel = formatDateDotDMY(quot.data.quotationDate?.trim() || quot.createdAt.slice(0, 10))
+            return (
+              <li key={quot.id}>
+                <Card padding="sm" className="transition hover:border-slate-300">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <Link to={`/quotation/${quot.id}`} className="min-w-0 flex-1 group">
+                      <p className="font-medium text-slate-900 group-hover:text-blue-600">{lines.title}</p>
+                      <p className="mt-1 truncate text-sm text-slate-500">{lines.subtitle}</p>
+                      <p className="mt-1 truncate text-xs text-slate-400">
+                        {lines.metaType} · Quotation {dateLabel} — updated {formatDateTimeDotDMY(quot.updatedAt)}
+                      </p>
+                    </Link>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <Button to={`/quotation/${quot.id}`} variant="secondary">
+                        View
+                      </Button>
+                      {linkedOrder ? (
+                        <Button to={`/submission/${quot.submissionId}/edit`} variant="secondary">
+                          Edit
+                        </Button>
+                      ) : (
+                        <Button variant="secondary" disabled>
+                          Edit
+                        </Button>
+                      )}
+                      <Button
+                        variant="danger"
+                        onClick={() => {
+                          if (!window.confirm('Delete this quotation? This cannot be undone.')) return
+                          void deleteQuotation(quot.id).catch(() => {
+                            window.alert('Could not delete. Check Firebase rules and your connection.')
+                          })
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </Card>
-            </li>
-          ))}
+                </Card>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>

@@ -18,7 +18,7 @@ import { useInvoicesStore } from '../store/useInvoicesStore'
 import { useSubmissionsStore } from '../store/useSubmissionsStore'
 import type { InvoiceFormData, InvoiceRecord } from '../types/invoice'
 import type { SurveyFormData } from '../types/survey'
-import { createEmptyLineItem, type QuotationLineItem } from '../types/quotation'
+import { createEmptyLineItem, type QuotationLineItem, type SewingCost } from '../types/quotation'
 import { formatDateDotDMY } from '../lib/dateDisplay'
 import { buildLineItemsFromSubmission } from '../lib/quotationLineFromSurvey'
 
@@ -49,6 +49,7 @@ export function InvoicePage() {
   const [customerAddress, setCustomerAddress] = useState('')
   const [introText, setIntroText] = useState(DEFAULT_INTRO)
   const [lineItems, setLineItems] = useState<QuotationLineItem[]>(() => [createEmptyLineItem()])
+  const [sewingCost, setSewingCost] = useState<SewingCost>({ qty: '', unitPrice: '' })
   const [advance, setAdvance] = useState('')
   const [closingNote, setClosingNote] = useState(DEFAULT_CLOSING)
   const [signatoryLine, setSignatoryLine] = useState('MAW PRINTING')
@@ -69,6 +70,7 @@ export function InvoicePage() {
     setCustomerAddress('')
     setIntroText(DEFAULT_INTRO)
     setLineItems([createEmptyLineItem()])
+    setSewingCost({ qty: '', unitPrice: '' })
     setAdvance('')
     setClosingNote(DEFAULT_CLOSING)
     setSignatoryLine('MAW PRINTING')
@@ -81,6 +83,7 @@ export function InvoicePage() {
     setCustomerAddress(d.customerAddress ?? '')
     setIntroText(d.introText?.trim() ? d.introText : DEFAULT_INTRO)
     setLineItems(d.lineItems?.length ? d.lineItems : [createEmptyLineItem()])
+    setSewingCost(d.sewingCost ?? { qty: '', unitPrice: '' })
     setAdvance(d.advance ?? '')
     setClosingNote(d.closingNote?.trim() ? d.closingNote : DEFAULT_CLOSING)
     setSignatoryLine(d.signatoryLine?.trim() ? d.signatoryLine : 'MAW PRINTING')
@@ -140,6 +143,7 @@ export function InvoicePage() {
       customerAddress,
       introText,
       lineItems,
+      sewingCost,
       advance,
       closingNote,
       signatoryLine,
@@ -150,6 +154,7 @@ export function InvoicePage() {
     customerAddress,
     introText,
     lineItems,
+    sewingCost,
     advance,
     closingNote,
     signatoryLine,
@@ -403,6 +408,28 @@ export function InvoicePage() {
                 </div>
               </div>
             ))}
+            <div className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_5rem_7rem_auto] md:items-end">
+              <FormField label="Sewing cost" htmlFor="isc-desc">
+                <div className="flex min-h-[5rem] items-center rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  Sewing cost
+                </div>
+              </FormField>
+              <FormField label="Qty" htmlFor="isc-qty">
+                <Input
+                  id="isc-qty"
+                  value={sewingCost.qty}
+                  onChange={(e) => setSewingCost((c) => ({ ...c, qty: e.target.value }))}
+                />
+              </FormField>
+              <FormField label="Unit price" htmlFor="isc-price">
+                <Input
+                  id="isc-price"
+                  value={sewingCost.unitPrice}
+                  onChange={(e) => setSewingCost((c) => ({ ...c, unitPrice: e.target.value }))}
+                />
+              </FormField>
+              <div className="md:pb-2" />
+            </div>
           </div>
         </div>
 
@@ -432,6 +459,7 @@ export function InvoicePage() {
           customerAddress={customerAddress}
           introText={introText}
           lineItems={lineItems}
+          sewingCost={sewingCost}
           advance={advance}
           closingNote={closingNote}
           signatoryLine={signatoryLine}

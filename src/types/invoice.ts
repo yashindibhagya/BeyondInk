@@ -1,10 +1,11 @@
-import { createEmptyLineItem, type QuotationLineItem } from './quotation'
+import { createEmptyLineItem, type QuotationLineItem, type SewingCost } from './quotation'
 
 export type InvoiceFormData = {
   invoiceDate: string
   customerAddress: string
   introText: string
   lineItems: QuotationLineItem[]
+  sewingCost: SewingCost
   advance: string
   closingNote: string
   signatoryLine: string
@@ -16,6 +17,7 @@ export const EMPTY_INVOICE_FORM: InvoiceFormData = {
   customerAddress: '',
   introText: '',
   lineItems: [],
+  sewingCost: { qty: '', unitPrice: '' },
   advance: '',
   closingNote: '',
   signatoryLine: '',
