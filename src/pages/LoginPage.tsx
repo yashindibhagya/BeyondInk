@@ -52,7 +52,7 @@ export function LoginPage() {
   return (
     <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-12">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-center text-xl font-semibold text-slate-900">FormFlow</h1>
+        <h1 className="text-center text-xl font-semibold text-slate-900">BeyondInk</h1>
         <p className="mt-1 text-center text-sm text-slate-600">Sign in to continue</p>
 
         {!firebaseConfigured ? (

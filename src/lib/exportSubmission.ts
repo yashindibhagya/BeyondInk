@@ -224,7 +224,7 @@ function boolLabel(v: boolean) {
 export function submissionToPlainText(sub: Submission): string {
   const { data } = sub
   const lines = [
-    'FormFlow - Order Details',
+    'BeyondInk - Order Details',
     `Submission ID: ${sub.id}`,
     `Created: ${formatDateTimeDotDMY(sub.createdAt)}`,
     '',

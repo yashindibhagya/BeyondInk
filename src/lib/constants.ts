@@ -1,7 +1,7 @@
 export const STORAGE_KEYS = {
-  submissions: 'formflow-submissions',
-  invoices: 'formflow-invoices',
-  quotations: 'formflow-quotations',
-  surveyDraft: 'formflow-survey-draft',
+  submissions: 'BeyondInk-submissions',
+  invoices: 'BeyondInk-invoices',
+  quotations: 'BeyondInk-quotations',
+  surveyDraft: 'BeyondInk-survey-draft',
 } as const
 

@@ -36,7 +36,7 @@ export function AppShell() {
           >
             <MenuIcon />
           </button>
-          <span className="font-semibold text-slate-900">FormFlow</span>
+          <span className="font-semibold text-slate-900">BeyondInk</span>
         </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8 print:p-0">
           <div className="mx-auto max-w-5xl print:max-w-none">

@@ -24,7 +24,7 @@ export function Sidebar({ onNavigate }: Props) {
     <nav className="flex h-full min-h-0 flex-col gap-1 p-4" aria-label="Main">
       <div className="mb-6 px-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-          FormFlow
+          BeyondInk
         </p>
         <p className="mt-1 text-lg font-semibold text-slate-900">Dashboard</p>
       </div>

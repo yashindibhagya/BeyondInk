@@ -1,6 +1,6 @@
 import { isAllowedSignInEmail } from './authAllowlist'
 
-const STORAGE_KEY = 'formdesk_session_email'
+const STORAGE_KEY = 'beyondink_session_email'
 
 /** Shared password for allowed accounts (Firebase Email/Password requires min 6 chars). */
 export const SHARED_LOGIN_PASSWORD = '1234'
