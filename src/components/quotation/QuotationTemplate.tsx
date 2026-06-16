@@ -28,6 +28,7 @@ type Props = {
   sewingCost?: SewingCost
   sewingCostSecondary?: SewingCost
   discount: string
+  discountSecondary: string
   paymentNote: string
   notes: string
 }
@@ -56,6 +57,7 @@ export function QuotationTemplate({
   sewingCost,
   sewingCostSecondary,
   discount,
+  discountSecondary,
   paymentNote,
   notes,
 }: Props) {
@@ -65,15 +67,18 @@ export function QuotationTemplate({
   const hasSecondary = lineItemsSecondary.some(
     (row) => row.description.trim() || row.qty.trim() || row.unitPrice.trim(),
   )
-  const secondaryTotal = hasSecondary
+  const secondarySubtotal = hasSecondary
     ? sumLineAmounts(lineItemsSecondary) + sewingGrossOf(sewingCostSecondary)
     : 0
+  const secondaryTotals = computeDocTotals(secondarySubtotal, discountSecondary)
 
-  const totalRows: TotalRow[] = [
-    { label: 'Subtotal', value: formatMoney(subtotal) },
-    { label: 'Discount', value: totals.discount > 0 ? `- ${formatMoney(totals.discount)}` : '—' },
-    { label: 'Total (LKR)', value: formatMoney(totals.total), highlight: true },
+  const buildTotalRows = (t: ReturnType<typeof computeDocTotals>): TotalRow[] => [
+    { label: 'Subtotal', value: formatMoney(t.subtotal) },
+    { label: 'Discount', value: t.discount > 0 ? `- ${formatMoney(t.discount)}` : '—' },
+    { label: 'Total (LKR)', value: formatMoney(t.total), highlight: true },
   ]
+
+  const totalRows = buildTotalRows(totals)
 
   return (
     <article className="quotation-template relative mx-auto box-border min-h-[297mm] w-full max-w-[210mm] overflow-hidden border border-slate-300 bg-white text-slate-900 shadow-md print:max-w-none print:border-0 print:shadow-none">
@@ -112,7 +117,7 @@ export function QuotationTemplate({
             <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-slate-600">Option 2</p>
             <ItemsTable items={buildDisplayItems(lineItemsSecondary, sewingCostSecondary)} />
             <div className="mt-4 flex justify-end">
-              <TotalsBox rows={[{ label: 'Total (LKR)', value: formatMoney(secondaryTotal), highlight: true }]} />
+              <TotalsBox rows={buildTotalRows(secondaryTotals)} />
             </div>
           </div>
         ) : null}

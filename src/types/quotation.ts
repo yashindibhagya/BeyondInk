@@ -21,6 +21,7 @@ export type QuotationFormData = {
   sewingCost: SewingCost
   sewingCostSecondary: SewingCost
   discount: string
+  discountSecondary: string
   paymentNote: string
   notes: string
 }
@@ -36,6 +37,7 @@ export const EMPTY_QUOTATION_FORM: QuotationFormData = {
   sewingCost: { qty: '', unitPrice: '' },
   sewingCostSecondary: { qty: '', unitPrice: '' },
   discount: '',
+  discountSecondary: '',
   paymentNote: '',
   notes: '',
 }

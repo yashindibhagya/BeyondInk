@@ -135,6 +135,7 @@ export async function saveQuotationToFirestore(record: QuotationRecord): Promise
     customerMobile: record.data.customerMobile ?? '',
     subject: record.data.subject,
     discount: record.data.discount ?? '',
+    discountSecondary: record.data.discountSecondary ?? '',
     paymentNote: record.data.paymentNote ?? '',
     notes: record.data.notes ?? '',
     lineItems: ensureLineItems(record.data.lineItems),

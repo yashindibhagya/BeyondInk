@@ -143,7 +143,10 @@ export function buildMonthlyOrderSummaries(
   const invBySub = buildInvoiceBySubmissionId(invoices, submissions)
   const moneyByMonth = aggregateInvoiceMoneyByMonth(invoices)
 
-  const buckets = new Map<string, Omit<MonthSummaryRow, 'invoiceGrossTotal' | 'invoiceBalanceTotal'>>()
+  const buckets = new Map<
+    string,
+    Omit<MonthSummaryRow, 'invoiceGrossTotal' | 'invoiceBalanceTotal' | 'invoiceGivenTotal' | 'invoiceProfitTotal'>
+  >()
 
   for (const s of submissions) {
     const key = monthKeyFromCreatedAt(s.createdAt)

@@ -58,6 +58,7 @@ export function QuotationPage() {
   const [sewingCost, setSewingCost] = useState<SewingCost>({ qty: '', unitPrice: '' })
   const [sewingCostSecondary, setSewingCostSecondary] = useState<SewingCost>({ qty: '', unitPrice: '' })
   const [discount, setDiscount] = useState('')
+  const [discountSecondary, setDiscountSecondary] = useState('')
   const [paymentNote, setPaymentNote] = useState(DEFAULT_PAYMENT)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
@@ -89,6 +90,7 @@ export function QuotationPage() {
     setSewingCost({ qty: '', unitPrice: '' })
     setSewingCostSecondary({ qty: '', unitPrice: '' })
     setDiscount('')
+    setDiscountSecondary('')
     setPaymentNote(DEFAULT_PAYMENT)
     setNotes('')
   }, [])
@@ -105,6 +107,7 @@ export function QuotationPage() {
     setSewingCost(d.sewingCost ?? { qty: '', unitPrice: '' })
     setSewingCostSecondary(d.sewingCostSecondary ?? { qty: '', unitPrice: '' })
     setDiscount(d.discount ?? '')
+    setDiscountSecondary(d.discountSecondary ?? '')
     setPaymentNote(d.paymentNote?.trim() ? d.paymentNote : DEFAULT_PAYMENT)
     setNotes(d.notes ?? '')
   }, [])
@@ -189,6 +192,8 @@ export function QuotationPage() {
 
   const disableSecondQuotation = useCallback(() => {
     setLineItemsSecondary([])
+    setSewingCostSecondary({ qty: '', unitPrice: '' })
+    setDiscountSecondary('')
   }, [])
 
   const handlePrint = useCallback(() => {
@@ -213,6 +218,7 @@ export function QuotationPage() {
       sewingCost,
       sewingCostSecondary,
       discount,
+      discountSecondary,
       paymentNote,
       notes,
     }
@@ -227,6 +233,7 @@ export function QuotationPage() {
     sewingCost,
     sewingCostSecondary,
     discount,
+    discountSecondary,
     paymentNote,
     notes,
   ])
@@ -523,11 +530,17 @@ export function QuotationPage() {
                 </FormField>
                 <div className="md:pb-2" />
               </div>
+              <FormField label="Second option discount (amount)" htmlFor="q-discount-2">
+                <Input id="q-discount-2" value={discountSecondary} onChange={(e) => setDiscountSecondary(e.target.value)} placeholder="e.g. 5000" />
+              </FormField>
             </div>
           ) : null}
         </div>
 
-        <FormField label="Discount (amount)" htmlFor="q-discount">
+        <FormField
+          label={lineItemsSecondary.length > 0 ? 'First option discount (amount)' : 'Discount (amount)'}
+          htmlFor="q-discount"
+        >
           <Input id="q-discount" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="e.g. 5000" />
         </FormField>
 
@@ -558,6 +571,7 @@ export function QuotationPage() {
           sewingCost={sewingCost}
           sewingCostSecondary={sewingCostSecondary}
           discount={discount}
+          discountSecondary={discountSecondary}
           paymentNote={paymentNote}
           notes={notes}
         />
