@@ -213,12 +213,26 @@ export function DashboardPage() {
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
                 {formatMoneyAmount(selectedMonth.invoiceGrossTotal)}
               </p>
-              <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">
-                Balance due (sum)
-              </p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-slate-800">
-                {formatMoneyAmount(selectedMonth.invoiceBalanceTotal)}
-              </p>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Balance due (sum)</p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-slate-800">
+                    {formatMoneyAmount(selectedMonth.invoiceBalanceTotal)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Given (sum)</p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-slate-800">
+                    {formatMoneyAmount(selectedMonth.invoiceGivenTotal)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Profit (sum)</p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-700">
+                    {formatMoneyAmount(selectedMonth.invoiceProfitTotal)}
+                  </p>
+                </div>
+              </div>
               <p className="mt-3 text-xs text-slate-600">
                 Includes every saved invoice whose <strong>invoice date</strong> falls in {selectedMonth.label}.{' '}
                 <strong>Total</strong> sums each invoice’s line amounts (qty × unit price). <strong>Balance</strong>{' '}

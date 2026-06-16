@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { InvoiceTemplate } from '../components/invoice/InvoiceTemplate'
+import { PaymentBreakdownModal } from '../components/invoice/PaymentBreakdownModal'
 import { SubmissionPrintDocumentShell } from '../components/submission/SubmissionPrintView'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -23,7 +24,14 @@ import {
   type InvoiceRecord,
 } from '../types/invoice'
 import type { SurveyFormData } from '../types/survey'
-import { createEmptyLineItem, type QuotationLineItem, type SewingCost } from '../types/quotation'
+import {
+  computeDocTotals,
+  createEmptyLineItem,
+  lineItemGrossAmount,
+  sumLineAmounts,
+  type QuotationLineItem,
+  type SewingCost,
+} from '../types/quotation'
 import { formatDateDotDMY } from '../lib/dateDisplay'
 import { buildLineItemsFromSubmission } from '../lib/quotationLineFromSurvey'
 
@@ -58,6 +66,9 @@ export function InvoicePage() {
   const [discount, setDiscount] = useState('')
   const [advance, setAdvance] = useState('')
   const [paymentStatus, setPaymentStatus] = useState<InvoicePaymentStatus>('unpaid')
+  const [given, setGiven] = useState('')
+  const [profit, setProfit] = useState('')
+  const [breakdownOpen, setBreakdownOpen] = useState(false)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const surveyCaptureRef = useRef<HTMLDivElement>(null)
@@ -82,6 +93,8 @@ export function InvoicePage() {
     setDiscount('')
     setAdvance('')
     setPaymentStatus('unpaid')
+    setGiven('')
+    setProfit('')
     setNotes('')
   }, [])
 
@@ -96,6 +109,8 @@ export function InvoicePage() {
     setDiscount(d.discount ?? '')
     setAdvance(d.advance ?? '')
     setPaymentStatus(d.paymentStatus ?? 'unpaid')
+    setGiven(d.given ?? '')
+    setProfit(d.profit ?? '')
     setNotes(d.notes ?? '')
   }, [])
 
@@ -185,6 +200,8 @@ export function InvoicePage() {
       discount,
       advance,
       paymentStatus,
+      given,
+      profit,
       notes,
     }
   }, [
@@ -198,8 +215,20 @@ export function InvoicePage() {
     discount,
     advance,
     paymentStatus,
+    given,
+    profit,
     notes,
   ])
+
+  // Invoice Total (LKR) = subtotal − discount, matching the InvoiceTemplate totals box.
+  const invoiceTotal = useMemo(() => {
+    const sewingGross =
+      sewingCost.qty.trim() && sewingCost.unitPrice.trim()
+        ? lineItemGrossAmount({ id: 'sc', description: '', qty: sewingCost.qty, unitPrice: sewingCost.unitPrice })
+        : 0
+    const subtotal = sumLineAmounts(lineItems) + sewingGross
+    return computeDocTotals(subtotal, discount).total
+  }, [lineItems, sewingCost, discount])
 
   const handleSave = useCallback(async () => {
     setSaving(true)
@@ -508,8 +537,22 @@ export function InvoicePage() {
           discount={discount}
           advance={advance}
           notes={notes}
+          onOpenBreakdown={() => setBreakdownOpen(true)}
         />
       </div>
+
+      {breakdownOpen ? (
+        <PaymentBreakdownModal
+          total={invoiceTotal}
+          initialGiven={given}
+          initialProfit={profit}
+          onClose={() => setBreakdownOpen(false)}
+          onSave={(g, p) => {
+            setGiven(g)
+            setProfit(p)
+          }}
+        />
+      ) : null}
 
       {toast ? (
         <div

@@ -7,12 +7,29 @@ import { Select } from '../components/ui/Select'
 import { formatDateDotDMY, formatDateTimeDotDMY } from '../lib/dateDisplay'
 import { firebaseDb } from '../lib/firebase'
 import { getCurrentFinancialYearLabel, isWithinLastNDays } from '../lib/financialYear'
+import { PaymentBreakdownModal } from '../components/invoice/PaymentBreakdownModal'
 import { useInvoicesStore } from '../store/useInvoicesStore'
 import { useSubmissionsStore } from '../store/useSubmissionsStore'
 import { INVOICE_PAYMENT_STATUS_BADGE, type InvoiceRecord } from '../types/invoice'
+import {
+  computeDocTotals,
+  lineItemGrossAmount,
+  sumLineAmounts,
+} from '../types/quotation'
 import type { Submission } from '../types/survey'
 
 const PRINT_TYPE_OPTIONS = ['All', 'Embroidery', 'Sublimation', 'Screen Print', 'Sticker']
+
+/** Invoice Total (LKR) = subtotal − discount, matching the InvoiceTemplate totals box. */
+function invoiceTotalOf(inv: InvoiceRecord): number {
+  const sc = inv.data.sewingCost
+  const sewingGross =
+    sc?.qty.trim() && sc?.unitPrice.trim()
+      ? lineItemGrossAmount({ id: 'sc', description: '', qty: sc.qty, unitPrice: sc.unitPrice })
+      : 0
+  const subtotal = sumLineAmounts(inv.data.lineItems ?? []) + sewingGross
+  return computeDocTotals(subtotal, inv.data.discount ?? '').total
+}
 function cardLines(inv: InvoiceRecord, submissionById: Map<string, Submission>) {
   const sub = inv.submissionId ? submissionById.get(inv.submissionId) : undefined
   if (sub) {
@@ -37,9 +54,11 @@ function cardLines(inv: InvoiceRecord, submissionById: Map<string, Submission>) 
 export function InvoicesListPage() {
   const invoices = useInvoicesStore((s) => s.invoices)
   const deleteInvoice = useInvoicesStore((s) => s.deleteInvoice)
+  const saveInvoice = useInvoicesStore((s) => s.saveInvoice)
   const firestoreReady = useInvoicesStore((s) => s.firestoreReady)
   const firestoreError = useInvoicesStore((s) => s.firestoreError)
   const submissions = useSubmissionsStore((s) => s.submissions)
+  const [breakdownInvoice, setBreakdownInvoice] = useState<InvoiceRecord | null>(null)
   const [query, setQuery] = useState('')
   const [printType, setPrintType] = useState('All')
   const [timeFilter, setTimeFilter] = useState('all')
@@ -216,6 +235,9 @@ export function InvoicesListPage() {
                       <Button to={`/invoice/${inv.id}`} variant="secondary">
                         View
                       </Button>
+                      <Button variant="secondary" onClick={() => setBreakdownInvoice(inv)}>
+                        Given / Profit
+                      </Button>
                       {linkedOrder ? (
                         <Button to={`/submission/${inv.submissionId}/edit`} variant="secondary">
                           Edit
@@ -244,6 +266,29 @@ export function InvoicesListPage() {
           })}
         </ul>
       )}
+
+      {breakdownInvoice ? (
+        <PaymentBreakdownModal
+          total={invoiceTotalOf(breakdownInvoice)}
+          initialGiven={breakdownInvoice.data.given ?? ''}
+          initialProfit={breakdownInvoice.data.profit ?? ''}
+          saveLabel="Save"
+          onClose={() => setBreakdownInvoice(null)}
+          onSave={async (given, profit) => {
+            try {
+              await saveInvoice({
+                id: breakdownInvoice.id,
+                submissionId: breakdownInvoice.submissionId,
+                data: { ...breakdownInvoice.data, given, profit },
+                docNumber: breakdownInvoice.docNumber,
+              })
+            } catch {
+              window.alert('Could not save. Check Firebase rules and your connection.')
+              throw new Error('save failed')
+            }
+          }}
+        />
+      ) : null}
     </div>
   )
 }

@@ -20,6 +20,10 @@ export type MonthSummaryRow = {
   invoiceGrossTotal: number
   /** Sum of invoice **Balance** for those same invoices. */
   invoiceBalanceTotal: number
+  /** Sum of the internal **Given** breakdown for those same invoices. */
+  invoiceGivenTotal: number
+  /** Sum of the internal **Profit** breakdown for those same invoices. */
+  invoiceProfitTotal: number
 }
 
 function monthKeyFromCreatedAt(iso: string): string {
@@ -112,17 +116,21 @@ function monthKeyForInvoice(inv: InvoiceRecord): string {
   return monthKeyFromCreatedAt(inv.updatedAt)
 }
 
-function aggregateInvoiceMoneyByMonth(invoices: InvoiceRecord[]): Map<string, { gross: number; balance: number }> {
-  const map = new Map<string, { gross: number; balance: number }>()
+type InvoiceMoney = { gross: number; balance: number; given: number; profit: number }
+
+function aggregateInvoiceMoneyByMonth(invoices: InvoiceRecord[]): Map<string, InvoiceMoney> {
+  const map = new Map<string, InvoiceMoney>()
   for (const inv of invoices) {
     const key = monthKeyForInvoice(inv)
     if (key === 'unknown') continue
     const gross = sumLineAmounts(inv.data.lineItems)
     const adv = parseAmount(inv.data.advance)
     const balance = gross > 0 ? (adv > 0 ? Math.max(0, gross - adv) : gross) : 0
-    const cur = map.get(key) ?? { gross: 0, balance: 0 }
+    const cur = map.get(key) ?? { gross: 0, balance: 0, given: 0, profit: 0 }
     cur.gross += gross
     cur.balance += balance
+    cur.given += parseAmount(inv.data.given ?? '')
+    cur.profit += parseAmount(inv.data.profit ?? '')
     map.set(key, cur)
   }
   return map
@@ -175,8 +183,14 @@ export function buildMonthlyOrderSummaries(
 
   const result: MonthSummaryRow[] = []
   for (const row of buckets.values()) {
-    const money = moneyByMonth.get(row.key) ?? { gross: 0, balance: 0 }
-    result.push({ ...row, invoiceGrossTotal: money.gross, invoiceBalanceTotal: money.balance })
+    const money = moneyByMonth.get(row.key) ?? { gross: 0, balance: 0, given: 0, profit: 0 }
+    result.push({
+      ...row,
+      invoiceGrossTotal: money.gross,
+      invoiceBalanceTotal: money.balance,
+      invoiceGivenTotal: money.given,
+      invoiceProfitTotal: money.profit,
+    })
   }
 
   return result.filter((r) => r.key !== 'unknown').sort((a, b) => b.key.localeCompare(a.key))

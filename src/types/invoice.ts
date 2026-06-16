@@ -34,6 +34,10 @@ export type InvoiceFormData = {
   discount: string
   advance: string
   paymentStatus: InvoicePaymentStatus
+  /** Internal-only payment breakdown: amount given by the customer. given + profit = invoice total. */
+  given: string
+  /** Internal-only payment breakdown: profit portion. Never shown on the printed invoice. */
+  profit: string
   notes: string
 }
 
@@ -48,6 +52,8 @@ export const EMPTY_INVOICE_FORM: InvoiceFormData = {
   discount: '',
   advance: '',
   paymentStatus: 'unpaid',
+  given: '',
+  profit: '',
   notes: '',
 }
 
@@ -86,6 +92,8 @@ export function invoiceFormFromQuotation(q: QuotationFormData): InvoiceFormData 
     discount: q.discount ?? '',
     advance: '',
     paymentStatus: 'unpaid',
+    given: '',
+    profit: '',
     notes: q.notes ?? '',
   }
 }

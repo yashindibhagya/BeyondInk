@@ -28,6 +28,8 @@ type Props = {
   discount: string
   advance: string
   notes: string
+  /** When provided, renders a small print-hidden button next to the balance to open the Given/Profit breakdown. */
+  onOpenBreakdown?: () => void
 }
 
 const TERMS = [
@@ -48,6 +50,7 @@ export function InvoiceTemplate({
   discount,
   advance,
   notes,
+  onOpenBreakdown,
 }: Props) {
   const sewingGross =
     sewingCost?.qty.trim() && sewingCost?.unitPrice.trim()
@@ -86,8 +89,17 @@ export function InvoiceTemplate({
           <ItemsTable items={buildDisplayItems(lineItems, sewingCost)} />
         </div>
 
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex flex-col items-end gap-2">
           <TotalsBox rows={totalRows} />
+          {onOpenBreakdown ? (
+            <button
+              type="button"
+              onClick={onOpenBreakdown}
+              className="print:hidden rounded-md border border-slate-300 px-3 py-1.5 text-[12px] font-medium text-slate-600 transition hover:bg-slate-50"
+            >
+              Given / Profit
+            </button>
+          ) : null}
         </div>
 
         <div className="flex-1" />
