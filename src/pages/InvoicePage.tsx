@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import letterheadUrl from '../assets/Quotation.jpg'
 import { InvoiceTemplate } from '../components/invoice/InvoiceTemplate'
 import { SubmissionPrintDocumentShell } from '../components/submission/SubmissionPrintView'
 import { Button } from '../components/ui/Button'
@@ -13,6 +12,7 @@ import {
   copyOrderAndDocumentImageToClipboard,
   downloadOrderAndLetterheadDocumentPdf,
 } from '../lib/exportSubmission'
+import { formatDocNumber, useNextDocNumber } from '../lib/docNumber'
 import { printOrderDocument } from '../lib/printOrderDocument'
 import { useInvoicesStore } from '../store/useInvoicesStore'
 import { useSubmissionsStore } from '../store/useSubmissionsStore'
@@ -21,12 +21,6 @@ import type { SurveyFormData } from '../types/survey'
 import { createEmptyLineItem, type QuotationLineItem, type SewingCost } from '../types/quotation'
 import { formatDateDotDMY } from '../lib/dateDisplay'
 import { buildLineItemsFromSubmission } from '../lib/quotationLineFromSurvey'
-
-const DEFAULT_INTRO =
-  'Please find below the invoice in respect of the above. Kindly arrange settlement as per the amounts shown.'
-
-const DEFAULT_CLOSING =
-  'Please contact the undersigned if you require clarification. Thank you for your patronage.'
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
@@ -44,16 +38,18 @@ export function InvoicePage() {
   const firestoreReady = useInvoicesStore((s) => s.firestoreReady)
   const invoicesFirestoreError = useInvoicesStore((s) => s.firestoreError)
   const saveInvoiceToStore = useInvoicesStore((s) => s.saveInvoice)
+  const nextDocNumber = useNextDocNumber()
 
   const [invoiceDate, setInvoiceDate] = useState(todayIsoDate)
+  const [dueDate, setDueDate] = useState('')
+  const [customerName, setCustomerName] = useState('')
   const [customerAddress, setCustomerAddress] = useState('')
-  const [introText, setIntroText] = useState(DEFAULT_INTRO)
+  const [customerMobile, setCustomerMobile] = useState('')
   const [lineItems, setLineItems] = useState<QuotationLineItem[]>(() => [createEmptyLineItem()])
   const [sewingCost, setSewingCost] = useState<SewingCost>({ qty: '', unitPrice: '' })
+  const [discount, setDiscount] = useState('')
   const [advance, setAdvance] = useState('')
-  const [closingNote, setClosingNote] = useState(DEFAULT_CLOSING)
-  const [signatoryLine, setSignatoryLine] = useState('MAW PRINTING')
-  const [signatoryName, setSignatoryName] = useState('M. A. W. Priyadarshana')
+  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const surveyCaptureRef = useRef<HTMLDivElement>(null)
   const invoiceCaptureRef = useRef<HTMLDivElement>(null)
@@ -67,31 +63,34 @@ export function InvoicePage() {
 
   const resetFormToDefaults = useCallback(() => {
     setInvoiceDate(todayIsoDate())
+    setDueDate('')
+    setCustomerName('')
     setCustomerAddress('')
-    setIntroText(DEFAULT_INTRO)
+    setCustomerMobile('')
     setLineItems([createEmptyLineItem()])
     setSewingCost({ qty: '', unitPrice: '' })
+    setDiscount('')
     setAdvance('')
-    setClosingNote(DEFAULT_CLOSING)
-    setSignatoryLine('MAW PRINTING')
-    setSignatoryName('M. A. W. Priyadarshana')
+    setNotes('')
   }, [])
 
   const hydrateFromRecord = useCallback((record: InvoiceRecord) => {
     const d = record.data
     setInvoiceDate(d.invoiceDate?.trim() || todayIsoDate())
+    setDueDate(d.dueDate ?? '')
+    setCustomerName(d.customerName ?? '')
     setCustomerAddress(d.customerAddress ?? '')
-    setIntroText(d.introText?.trim() ? d.introText : DEFAULT_INTRO)
+    setCustomerMobile(d.customerMobile ?? '')
     setLineItems(d.lineItems?.length ? d.lineItems : [createEmptyLineItem()])
     setSewingCost(d.sewingCost ?? { qty: '', unitPrice: '' })
+    setDiscount(d.discount ?? '')
     setAdvance(d.advance ?? '')
-    setClosingNote(d.closingNote?.trim() ? d.closingNote : DEFAULT_CLOSING)
-    setSignatoryLine(d.signatoryLine?.trim() ? d.signatoryLine : 'MAW PRINTING')
-    setSignatoryName(d.signatoryName?.trim() ? d.signatoryName : 'M. A. W. Priyadarshana')
+    setNotes(d.notes ?? '')
   }, [])
 
   const hydrateFromSubmission = useCallback((data: SurveyFormData) => {
     setInvoiceDate(data.orderDate?.trim() || todayIsoDate())
+    setCustomerName(data.ownerName?.trim() || '')
     setCustomerAddress(data.address?.trim() || '')
     setLineItems(buildLineItemsFromSubmission(data))
   }, [])
@@ -136,29 +135,36 @@ export function InvoicePage() {
   }, [])
 
   const invoiceDateDisplay = useMemo(() => formatDateDotDMY(invoiceDate), [invoiceDate])
+  const dueDateDisplay = useMemo(() => formatDateDotDMY(dueDate), [dueDate])
+
+  // Existing record keeps its number; a new/unnumbered one previews the next shared number.
+  const docNumber = savedInvoice?.docNumber ?? nextDocNumber
+  const docNumberDisplay = formatDocNumber(docNumber)
 
   const buildFormData = useCallback((): InvoiceFormData => {
     return {
       invoiceDate,
+      dueDate,
+      customerName,
       customerAddress,
-      introText,
+      customerMobile,
       lineItems,
       sewingCost,
+      discount,
       advance,
-      closingNote,
-      signatoryLine,
-      signatoryName,
+      notes,
     }
   }, [
     invoiceDate,
+    dueDate,
+    customerName,
     customerAddress,
-    introText,
+    customerMobile,
     lineItems,
     sewingCost,
+    discount,
     advance,
-    closingNote,
-    signatoryLine,
-    signatoryName,
+    notes,
   ])
 
   const handleSave = useCallback(async () => {
@@ -169,6 +175,7 @@ export function InvoicePage() {
         id: invoiceId,
         submissionId: submission?.id ?? null,
         data,
+        docNumber: savedInvoice?.docNumber ?? nextDocNumber,
       })
       if (!invoiceId) {
         navigate(`/invoice/${id}`, { replace: true })
@@ -186,6 +193,8 @@ export function InvoicePage() {
     saveInvoiceToStore,
     showToast,
     submission?.id,
+    savedInvoice?.docNumber,
+    nextDocNumber,
   ])
 
   const addRow = useCallback(() => {
@@ -206,9 +215,8 @@ export function InvoicePage() {
 
   const invoicePdfBaseName = useMemo(() => {
     const date = invoiceDate?.trim() || todayIsoDate()
-    const id = invoiceId ? `-${invoiceId.slice(0, 8)}` : ''
-    return `invoice-${date}${id}`
-  }, [invoiceDate, invoiceId])
+    return `invoice-${docNumberDisplay || 'new'}-${date}`
+  }, [invoiceDate, docNumberDisplay])
 
   const handleDownloadPdf = useCallback(async () => {
     const invEl = invoiceCaptureRef.current
@@ -283,20 +291,17 @@ export function InvoicePage() {
           <Link to={backLink} className="text-sm font-medium text-blue-600 hover:text-blue-700">
             ← {invoiceId ? 'Invoices' : 'Dashboard'}
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Invoice</h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+            Invoice <span className="text-slate-400">#{docNumberDisplay}</span>
+          </h1>
+          <p className="mt-1 text-xs text-slate-500">
+            {savedInvoice?.docNumber
+              ? 'Number assigned and locked.'
+              : `Number ${docNumberDisplay} will be assigned when you save.`}
+          </p>
           {invoicesFirestoreError ? (
             <p className="mt-2 text-sm text-red-600">{invoicesFirestoreError}</p>
           ) : null}
-          <p className="mt-1 text-sm text-slate-600">
-            {submission
-              ? 'Download PDF matches Print: A4, page 1 order summary, page 2 invoice. The order block is off-screen but included.'
-              : 'Download PDF saves the invoice letterhead as A4. Save stores data in Firestore.'}
-          </p>
-          <p className="mt-2 max-w-xl text-sm text-slate-600">
-            {submission
-              ? 'Use Download PDF for a file without the print dialog. Page 1 uses the same two-column order layout as the submission screen; page 2 is the invoice.'
-              : 'With no linked order, the PDF is only the invoice sheet. Link from an order to include the order confirmation on page 1.'}
-          </p>
         </div>
         <div className="grid w-full max-w-md shrink-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[320px]">
           <Button type="button" className="w-full py-2.5 text-sm shadow-md" onClick={handleSave} disabled={saving}>
@@ -320,11 +325,7 @@ export function InvoicePage() {
             onClick={handleCopyImage}
             disabled={copiedImage || downloadingPdf}
           >
-            {copiedImage
-              ? 'Copied'
-              : submission
-                ? 'Copy image (order + invoice)'
-                : 'Copy as image'}
+            {copiedImage ? 'Copied' : submission ? 'Copy image (order + invoice)' : 'Copy as image'}
           </Button>
         </div>
       </div>
@@ -332,33 +333,31 @@ export function InvoicePage() {
       <Card padding="sm" className="no-print space-y-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Invoice details</p>
         <div className="grid gap-4 md:grid-cols-2">
-          <FormField label="Date" htmlFor="inv-date">
+          <FormField label="Invoice date" htmlFor="inv-date">
             <Input id="inv-date" type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
           </FormField>
-          <FormField
-            label="Advance paid"
-            htmlFor="inv-advance"
-            hint="Shown in the invoice table; balance = total − advance."
-          >
-            <Input
-              id="inv-advance"
-              value={advance}
-              onChange={(e) => setAdvance(e.target.value)}
-              placeholder="e.g. 25000 or 25,000.00"
-            />
+          <FormField label="Due date" htmlFor="inv-due">
+            <Input id="inv-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </FormField>
         </div>
-        <FormField label="Customer address" htmlFor="inv-addr">
+
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bill to</p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField label="Customer name" htmlFor="inv-name">
+            <Input id="inv-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Recipient name" />
+          </FormField>
+          <FormField label="Mobile" htmlFor="inv-mobile">
+            <Input id="inv-mobile" value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="e.g. 077 123 4567" />
+          </FormField>
+        </div>
+        <FormField label="Address" htmlFor="inv-addr">
           <Textarea
             id="inv-addr"
-            rows={4}
+            rows={3}
             value={customerAddress}
             onChange={(e) => setCustomerAddress(e.target.value)}
-            placeholder="Recipient name and address"
+            placeholder="Customer address"
           />
-        </FormField>
-        <FormField label="Introduction" htmlFor="inv-intro">
-          <Textarea id="inv-intro" rows={3} value={introText} onChange={(e) => setIntroText(e.target.value)} />
         </FormField>
 
         <div className="space-y-2">
@@ -383,11 +382,7 @@ export function InvoicePage() {
                   />
                 </FormField>
                 <FormField label="Qty" htmlFor={`iq-${row.id}`}>
-                  <Input
-                    id={`iq-${row.id}`}
-                    value={row.qty}
-                    onChange={(e) => updateLine(row.id, { qty: e.target.value })}
-                  />
+                  <Input id={`iq-${row.id}`} value={row.qty} onChange={(e) => updateLine(row.id, { qty: e.target.value })} />
                 </FormField>
                 <FormField label="Unit price" htmlFor={`iu-${row.id}`}>
                   <Input
@@ -397,12 +392,7 @@ export function InvoicePage() {
                   />
                 </FormField>
                 <div className="flex justify-end md:pb-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={lineItems.length <= 1}
-                    onClick={() => removeRow(row.id)}
-                  >
+                  <Button type="button" variant="secondary" disabled={lineItems.length <= 1} onClick={() => removeRow(row.id)}>
                     Remove
                   </Button>
                 </div>
@@ -415,11 +405,7 @@ export function InvoicePage() {
                 </div>
               </FormField>
               <FormField label="Qty" htmlFor="isc-qty">
-                <Input
-                  id="isc-qty"
-                  value={sewingCost.qty}
-                  onChange={(e) => setSewingCost((c) => ({ ...c, qty: e.target.value }))}
-                />
+                <Input id="isc-qty" value={sewingCost.qty} onChange={(e) => setSewingCost((c) => ({ ...c, qty: e.target.value }))} />
               </FormField>
               <FormField label="Unit price" htmlFor="isc-price">
                 <Input
@@ -433,17 +419,18 @@ export function InvoicePage() {
           </div>
         </div>
 
-        <FormField label="Closing paragraph" htmlFor="inv-close">
-          <Textarea id="inv-close" rows={4} value={closingNote} onChange={(e) => setClosingNote(e.target.value)} />
-        </FormField>
         <div className="grid gap-4 md:grid-cols-2">
-          <FormField label="Sign-off line" htmlFor="inv-sign1">
-            <Input id="inv-sign1" value={signatoryLine} onChange={(e) => setSignatoryLine(e.target.value)} />
+          <FormField label="Discount (amount)" htmlFor="inv-discount">
+            <Input id="inv-discount" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="e.g. 5000" />
           </FormField>
-          <FormField label="Signatory name" htmlFor="inv-sign2">
-            <Input id="inv-sign2" value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} />
+          <FormField label="Advance paid" htmlFor="inv-advance" hint="Balance = total − advance.">
+            <Input id="inv-advance" value={advance} onChange={(e) => setAdvance(e.target.value)} placeholder="e.g. 25000" />
           </FormField>
         </div>
+
+        <FormField label="Notes" htmlFor="inv-notes">
+          <Textarea id="inv-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes shown on the invoice" />
+        </FormField>
       </Card>
 
       {submission ? (
@@ -454,16 +441,17 @@ export function InvoicePage() {
 
       <div ref={invoiceCaptureRef} className="print:m-0 print:p-0">
         <InvoiceTemplate
-          letterheadUrl={letterheadUrl}
+          docNumberDisplay={docNumberDisplay}
           invoiceDateDisplay={invoiceDateDisplay}
+          dueDateDisplay={dueDateDisplay}
+          customerName={customerName}
           customerAddress={customerAddress}
-          introText={introText}
+          customerMobile={customerMobile}
           lineItems={lineItems}
           sewingCost={sewingCost}
+          discount={discount}
           advance={advance}
-          closingNote={closingNote}
-          signatoryLine={signatoryLine}
-          signatoryName={signatoryName}
+          notes={notes}
         />
       </div>
 
@@ -471,8 +459,9 @@ export function InvoicePage() {
         <div
           role="status"
           aria-live="polite"
-          className={`no-print fixed bottom-6 left-1/2 z-[100] max-w-[min(90vw,28rem)] -translate-x-1/2 rounded-lg px-4 py-3 text-sm shadow-lg ${toast.type === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'
-            }`}
+          className={`no-print fixed bottom-6 left-1/2 z-[100] max-w-[min(90vw,28rem)] -translate-x-1/2 rounded-lg px-4 py-3 text-sm shadow-lg ${
+            toast.type === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'
+          }`}
         >
           {toast.message}
         </div>

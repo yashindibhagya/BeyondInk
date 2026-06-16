@@ -1,190 +1,131 @@
 import { formatDateDotDMY } from '../../lib/dateDisplay'
+import { LetterheadHeader } from '../letterhead/LetterheadHeader'
+import {
+  BillToBlock,
+  ItemsTable,
+  LetterheadFooter,
+  TotalsBox,
+  type TotalRow,
+} from '../letterhead/LetterheadParts'
+import { buildDisplayItems } from '../letterhead/buildDisplayItems'
 import type { QuotationLineItem, SewingCost } from '../../types/quotation'
-import { formatLineAmount, lineItemGrossAmount, sumLineAmounts } from '../../types/quotation'
+import {
+  computeDocTotals,
+  formatMoney,
+  lineItemGrossAmount,
+  sumLineAmounts,
+} from '../../types/quotation'
 
 type Props = {
-  letterheadUrl: string
+  docNumberDisplay: string
   quotationDate: string
+  customerName: string
   customerAddress: string
+  customerMobile: string
   subject: string
-  introText: string
   lineItems: QuotationLineItem[]
   lineItemsSecondary?: QuotationLineItem[]
   sewingCost?: SewingCost
   sewingCostSecondary?: SewingCost
+  discount: string
   paymentNote: string
-  closingNote: string
-  signatoryLine: string
-  signatoryName: string
+  notes: string
+}
+
+const TERMS = [
+  'This quotation is valid for 14 days from the date above.',
+  'A 60% advance is required to confirm the order; balance on delivery.',
+  'Prices are subject to change for revised specifications.',
+]
+
+function sewingGrossOf(sewingCost?: SewingCost): number {
+  return sewingCost?.qty.trim() && sewingCost?.unitPrice.trim()
+    ? lineItemGrossAmount({ id: 'sc', description: '', qty: sewingCost.qty, unitPrice: sewingCost.unitPrice })
+    : 0
 }
 
 export function QuotationTemplate({
-  letterheadUrl,
+  docNumberDisplay,
   quotationDate,
+  customerName,
   customerAddress,
+  customerMobile,
   subject,
-  introText,
   lineItems,
   lineItemsSecondary = [],
   sewingCost,
   sewingCostSecondary,
+  discount,
   paymentNote,
-  closingNote,
-  signatoryLine,
-  signatoryName,
+  notes,
 }: Props) {
-  const sewingCostItem = sewingCost?.qty.trim() && sewingCost?.unitPrice.trim()
-    ? { id: 'sewing-cost', description: 'Sewing cost', qty: sewingCost.qty, unitPrice: sewingCost.unitPrice }
-    : null
-  const sewingCostSecondaryItem = sewingCostSecondary?.qty.trim() && sewingCostSecondary?.unitPrice.trim()
-    ? { id: 'sewing-cost-2', description: 'Sewing cost', qty: sewingCostSecondary.qty, unitPrice: sewingCostSecondary.unitPrice }
-    : null
+  const subtotal = sumLineAmounts(lineItems) + sewingGrossOf(sewingCost)
+  const totals = computeDocTotals(subtotal, discount)
 
-  const sewingCostGross = sewingCostItem ? lineItemGrossAmount(sewingCostItem) : 0
-  const sewingCostSecondaryGross = sewingCostSecondaryItem ? lineItemGrossAmount(sewingCostSecondaryItem) : 0
-
-  const total = sumLineAmounts(lineItems) + sewingCostGross
-  const totalSecondary = sumLineAmounts(lineItemsSecondary) + sewingCostSecondaryGross
-  const totalFormatted =
-    total > 0
-      ? total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : '—'
-  const totalSecondaryFormatted =
-    totalSecondary > 0
-      ? totalSecondary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : '—'
-  const hasSecondaryRows = lineItemsSecondary.some(
+  const hasSecondary = lineItemsSecondary.some(
     (row) => row.description.trim() || row.qty.trim() || row.unitPrice.trim(),
   )
+  const secondaryTotal = hasSecondary
+    ? sumLineAmounts(lineItemsSecondary) + sewingGrossOf(sewingCostSecondary)
+    : 0
+
+  const totalRows: TotalRow[] = [
+    { label: 'Subtotal', value: formatMoney(subtotal) },
+    { label: 'Discount', value: totals.discount > 0 ? `- ${formatMoney(totals.discount)}` : '—' },
+    { label: 'Total (LKR)', value: formatMoney(totals.total), highlight: true },
+  ]
 
   return (
-    <article
-      className="quotation-template relative mx-auto box-border min-h-[297mm] w-full max-w-[210mm] overflow-hidden border border-slate-300 bg-white text-slate-900 shadow-md print:max-w-none print:border-0 print:shadow-none"
-      style={{
-        backgroundImage: `url(${letterheadUrl})`,
-        backgroundSize: '100% 100%',
-        backgroundPosition: 'center center',
-        backgroundRepeat: 'no-repeat',
-      }}
-    >
-      {/* Leave top space for letterhead graphic in `invoice plain.jpg.jpeg`; tweak `pt-*` if body overlaps the image header. */}
-      <div className="relative z-[1] px-10 pb-12 pt-36 text-[13px] leading-relaxed print:px-12 sm:pt-40">
-        <div className="mb-6 grid gap-1 text-[13px]">
-          <p>
-            <span className="font-semibold">Date:</span> {formatDateDotDMY(quotationDate) || '—'}
-          </p>
-          {customerAddress.trim() ? (
-            <div className="whitespace-pre-wrap">
-              <span className="font-semibold">To:</span>
-              {'\n'}
-              {customerAddress.trim()}
+    <article className="quotation-template relative mx-auto box-border min-h-[297mm] w-full max-w-[210mm] overflow-hidden border border-slate-300 bg-white text-slate-900 shadow-md print:max-w-none print:border-0 print:shadow-none">
+      <div className="flex min-h-[297mm] flex-col px-10 py-8 print:px-12">
+        <LetterheadHeader
+          title="Quotation"
+          meta={[
+            { label: 'Quotation No', value: docNumberDisplay },
+            { label: 'Date', value: formatDateDotDMY(quotationDate) },
+          ]}
+        />
+
+        <div className="mt-6 flex items-start justify-between gap-6">
+          <BillToBlock name={customerName} address={customerAddress} mobile={customerMobile} />
+          {subject.trim() ? (
+            <div className="max-w-[36%] text-right">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Quotation For</p>
+              <p className="mt-1 text-[13px] font-semibold uppercase text-slate-900">{subject}</p>
             </div>
           ) : null}
         </div>
 
-        <p className="mb-3">Dear Sir,</p>
+        <div className="mt-5">
+          {hasSecondary ? (
+            <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-slate-600">Option 1</p>
+          ) : null}
+          <ItemsTable items={buildDisplayItems(lineItems, sewingCost)} />
+        </div>
 
-        <h2 className="mb-3 text-center text-sm font-bold uppercase underline decoration-black underline-offset-2">
-          QUOTATION FOR {subject.trim() || '—'}
-        </h2>
+        <div className="mt-4 flex justify-end">
+          <TotalsBox rows={totalRows} />
+        </div>
 
-        <p className="mb-6 text-justify">{introText}</p>
-        <p className="mb-2 text-[12px] font-semibold uppercase">Quotation 01</p>
-        <table className="mb-4 w-full border-collapse border border-black text-left text-[12px]">
-          <thead>
-            <tr className="bg-slate-50">
-              <th className="border border-black px-2 py-1.5 font-semibold uppercase">Description</th>
-              <th className="w-[10%] border border-black px-2 py-1.5 text-center font-semibold uppercase">Qty</th>
-              <th className="w-[22%] border border-black px-2 py-1.5 text-right font-semibold uppercase">
-                Unit price
-              </th>
-              <th className="w-[18%] border border-black px-2 py-1.5 text-right font-semibold uppercase">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lineItems.map((row) => {
-              const amount = formatLineAmount(row.qty, row.unitPrice)
-              return (
-                <tr key={row.id}>
-                  <td className="border border-black px-2 py-2 align-top whitespace-pre-wrap">{row.description}</td>
-                  <td className="border border-black px-2 py-2 text-center align-top tabular-nums">{row.qty}</td>
-                  <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{row.unitPrice}</td>
-                  <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{amount || '—'}</td>
-                </tr>
-              )
-            })}
-            {sewingCostItem ? (
-              <tr>
-                <td className="border border-black px-2 py-2 align-top whitespace-pre-wrap">Sewing cost</td>
-                <td className="border border-black px-2 py-2 text-center align-top tabular-nums">{sewingCostItem.qty}</td>
-                <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{sewingCostItem.unitPrice}</td>
-                <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{formatLineAmount(sewingCostItem.qty, sewingCostItem.unitPrice) || '—'}</td>
-              </tr>
-            ) : null}
-            <tr className="font-semibold">
-              <td colSpan={3} className="border border-black px-2 py-2 text-right uppercase">
-                Total
-              </td>
-              <td className="border border-black px-2 py-2 text-right tabular-nums">{totalFormatted}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        {hasSecondaryRows ? (
-          <>
-            <p className="mb-2 text-[12px] font-semibold uppercase">Quotation 02</p>
-            <table className="mb-4 w-full border-collapse border border-black text-left text-[12px]">
-              <thead>
-                <tr className="bg-slate-50">
-                  <th className="border border-black px-2 py-1.5 font-semibold uppercase">Description</th>
-                  <th className="w-[10%] border border-black px-2 py-1.5 text-center font-semibold uppercase">Qty</th>
-                  <th className="w-[22%] border border-black px-2 py-1.5 text-right font-semibold uppercase">
-                    Unit price
-                  </th>
-                  <th className="w-[18%] border border-black px-2 py-1.5 text-right font-semibold uppercase">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lineItemsSecondary.map((row) => {
-                  const amount = formatLineAmount(row.qty, row.unitPrice)
-                  return (
-                    <tr key={row.id}>
-                      <td className="border border-black px-2 py-2 align-top whitespace-pre-wrap">{row.description}</td>
-                      <td className="border border-black px-2 py-2 text-center align-top tabular-nums">{row.qty}</td>
-                      <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{row.unitPrice}</td>
-                      <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{amount || '—'}</td>
-                    </tr>
-                  )
-                })}
-                {sewingCostSecondaryItem ? (
-                  <tr>
-                    <td className="border border-black px-2 py-2 align-top whitespace-pre-wrap">Sewing cost</td>
-                    <td className="border border-black px-2 py-2 text-center align-top tabular-nums">{sewingCostSecondaryItem.qty}</td>
-                    <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{sewingCostSecondaryItem.unitPrice}</td>
-                    <td className="border border-black px-2 py-2 text-right align-top tabular-nums">{formatLineAmount(sewingCostSecondaryItem.qty, sewingCostSecondaryItem.unitPrice) || '—'}</td>
-                  </tr>
-                ) : null}
-                <tr className="font-semibold">
-                  <td colSpan={3} className="border border-black px-2 py-2 text-right uppercase">
-                    Total
-                  </td>
-                  <td className="border border-black px-2 py-2 text-right tabular-nums">{totalSecondaryFormatted}</td>
-                </tr>
-              </tbody>
-            </table>
-          </>
+        {hasSecondary ? (
+          <div className="mt-6">
+            <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-slate-600">Option 2</p>
+            <ItemsTable items={buildDisplayItems(lineItemsSecondary, sewingCostSecondary)} />
+            <div className="mt-4 flex justify-end">
+              <TotalsBox rows={[{ label: 'Total (LKR)', value: formatMoney(secondaryTotal), highlight: true }]} />
+            </div>
+          </div>
         ) : null}
 
-        <p className="mb-4 text-justify text-[12px] font-semibold">{paymentNote}</p>
+        {paymentNote.trim() ? (
+          <p className="mt-5 rounded-sm bg-slate-50 px-3 py-2 text-center text-[12px] font-semibold text-slate-800">
+            {paymentNote}
+          </p>
+        ) : null}
 
-        <p className="mb-8 text-justify text-[12px]">{closingNote}</p>
+        <div className="flex-1" />
 
-        <div className="text-[12px]">
-          <p>Thanking you,</p>
-          <p className="mt-6">Yours faithfully,</p>
-          <p className="mt-2 font-semibold">{signatoryLine}</p>
-          <p className="mt-1">{signatoryName}</p>
-        </div>
+        <LetterheadFooter notes={notes} terms={TERMS} />
       </div>
     </article>
   )

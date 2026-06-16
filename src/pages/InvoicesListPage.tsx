@@ -197,7 +197,10 @@ export function InvoicesListPage() {
                 <Card padding="sm" className="transition hover:border-slate-300">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <Link to={`/invoice/${inv.id}`} className="min-w-0 flex-1 group">
-                      <p className="font-medium text-slate-900 group-hover:text-blue-600">{lines.title}</p>
+                      <p className="font-medium text-slate-900 group-hover:text-blue-600">
+                        {inv.docNumber ? <span className="mr-1.5 text-slate-400">#{inv.docNumber}</span> : null}
+                        {lines.title}
+                      </p>
                       <p className="mt-1 truncate text-sm text-slate-500">{lines.subtitle}</p>
                       <p className="mt-1 truncate text-xs text-slate-400">
                         {lines.metaType} · Invoice {dateLabel} — updated {formatDateTimeDotDMY(inv.updatedAt)}

@@ -108,11 +108,14 @@ function normalizeQuotation(id: string, raw: Record<string, unknown> | undefined
     sewingCostSecondary: normalizeSewingCost(partial.sewingCostSecondary),
   }
 
+  const docNumber = typeof raw.docNumber === 'number' && Number.isFinite(raw.docNumber) ? raw.docNumber : undefined
+
   return {
     id,
     createdAt,
     updatedAt,
     financialYear,
+    ...(docNumber !== undefined ? { docNumber } : {}),
     submissionId,
     data,
   }
@@ -127,8 +130,13 @@ export async function saveQuotationToFirestore(record: QuotationRecord): Promise
   const financialYear = record.financialYear?.trim() || getFinancialYearLabel(createdAt.toDate())
   const persistedData = {
     quotationDate: record.data.quotationDate,
+    customerName: record.data.customerName ?? '',
     customerAddress: record.data.customerAddress,
+    customerMobile: record.data.customerMobile ?? '',
     subject: record.data.subject,
+    discount: record.data.discount ?? '',
+    paymentNote: record.data.paymentNote ?? '',
+    notes: record.data.notes ?? '',
     lineItems: ensureLineItems(record.data.lineItems),
     lineItemsSecondary: record.data.lineItemsSecondary ?? [],
     sewingCost: record.data.sewingCost ?? { qty: '', unitPrice: '' },
@@ -140,6 +148,7 @@ export async function saveQuotationToFirestore(record: QuotationRecord): Promise
       createdAt,
       updatedAt,
       financialYear,
+      ...(typeof record.docNumber === 'number' ? { docNumber: record.docNumber } : {}),
       submissionId: record.submissionId,
       data: persistedData,
     },

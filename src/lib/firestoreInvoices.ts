@@ -87,11 +87,14 @@ function normalizeInvoice(id: string, raw: Record<string, unknown> | undefined):
     sewingCost: normalizeSewingCost(partial.sewingCost),
   }
 
+  const docNumber = typeof raw.docNumber === 'number' && Number.isFinite(raw.docNumber) ? raw.docNumber : undefined
+
   return {
     id,
     createdAt,
     updatedAt,
     financialYear,
+    ...(docNumber !== undefined ? { docNumber } : {}),
     submissionId,
     data,
   }
@@ -106,8 +109,13 @@ export async function saveInvoiceToFirestore(record: InvoiceRecord): Promise<voi
   const financialYear = record.financialYear?.trim() || getFinancialYearLabel(createdAt.toDate())
   const persistedData = {
     invoiceDate: record.data.invoiceDate,
+    dueDate: record.data.dueDate ?? '',
+    customerName: record.data.customerName ?? '',
     customerAddress: record.data.customerAddress,
+    customerMobile: record.data.customerMobile ?? '',
+    discount: record.data.discount ?? '',
     advance: record.data.advance,
+    notes: record.data.notes ?? '',
     lineItems: ensureLineItems(record.data.lineItems),
     sewingCost: record.data.sewingCost ?? { qty: '', unitPrice: '' },
   }
@@ -117,6 +125,7 @@ export async function saveInvoiceToFirestore(record: InvoiceRecord): Promise<voi
       createdAt,
       updatedAt,
       financialYear,
+      ...(typeof record.docNumber === 'number' ? { docNumber: record.docNumber } : {}),
       submissionId: record.submissionId,
       data: persistedData,
     },

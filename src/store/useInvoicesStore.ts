@@ -16,6 +16,8 @@ type InvoicesState = {
     id?: string
     submissionId: string | null
     data: InvoiceFormData
+    /** Number to assign if this record doesn't already have one (first save). */
+    docNumber?: number
   }) => Promise<string>
   deleteInvoice: (id: string) => Promise<void>
 }
@@ -90,15 +92,17 @@ const createInvoicesSlice = (
 
   setFirestoreError: (message) => set({ firestoreError: message, firestoreReady: true }),
 
-  saveInvoice: async ({ id: inputId, submissionId, data }) => {
+  saveInvoice: async ({ id: inputId, submissionId, data, docNumber }) => {
     const id = inputId ?? crypto.randomUUID()
     const now = new Date().toISOString()
     const prev = get().invoices.find((i) => i.id === id)
+    const assignedNumber = prev?.docNumber ?? docNumber
     const record: InvoiceRecord = {
       id,
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
       financialYear: prev?.financialYear ?? getFinancialYearLabel(prev?.createdAt ?? now),
+      ...(typeof assignedNumber === 'number' ? { docNumber: assignedNumber } : {}),
       submissionId,
       data,
     }

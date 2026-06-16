@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import letterheadUrl from '../assets/Quotation.jpg'
 import { QuotationTemplate } from '../components/quotation/QuotationTemplate'
 import { SubmissionPrintDocumentShell } from '../components/submission/SubmissionPrintView'
 import { Button } from '../components/ui/Button'
@@ -14,6 +13,7 @@ import {
   downloadOrderAndLetterheadDocumentPdf,
 } from '../lib/exportSubmission'
 import { buildLineItemsFromSubmission } from '../lib/quotationLineFromSurvey'
+import { formatDocNumber, useNextDocNumber } from '../lib/docNumber'
 import { printOrderDocument } from '../lib/printOrderDocument'
 import { useQuotationsStore } from '../store/useQuotationsStore'
 import { useSubmissionsStore } from '../store/useSubmissionsStore'
@@ -26,14 +26,8 @@ import {
   type SewingCost,
 } from '../types/quotation'
 
-const DEFAULT_INTRO =
-  'Further to the discussion there undersigned had with you regarding the above. We take a pleasure in forwarding our quotation for same as follows.'
-
 const DEFAULT_PAYMENT =
-  '***A kind request to pay 60% of the total amount as a advance payment. As well as cash on delivery.***'
-
-const DEFAULT_CLOSING =
-  'Please contact the undersigned if you require clarification in this connection. We hope to have made a compressive offer and look forward to receiving valid order. Assuring you of our best services fullest support at all times.'
+  '***A kind request to pay 60% of the total amount as an advance payment, with the balance on delivery.***'
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
@@ -51,28 +45,27 @@ export function QuotationPage() {
   const firestoreReady = useQuotationsStore((s) => s.firestoreReady)
   const quotationsFirestoreError = useQuotationsStore((s) => s.firestoreError)
   const saveQuotationToStore = useQuotationsStore((s) => s.saveQuotation)
+  const nextDocNumber = useNextDocNumber()
 
   const [quotationDate, setQuotationDate] = useState(todayIsoDate)
+  const [customerName, setCustomerName] = useState('')
   const [customerAddress, setCustomerAddress] = useState('')
+  const [customerMobile, setCustomerMobile] = useState('')
   const [subject, setSubject] = useState('')
-  const [introText, setIntroText] = useState(DEFAULT_INTRO)
   const [lineItems, setLineItems] = useState<QuotationLineItem[]>(() => [createEmptyLineItem()])
   const [lineItemsSecondary, setLineItemsSecondary] = useState<QuotationLineItem[]>([])
   const [sewingCost, setSewingCost] = useState<SewingCost>({ qty: '', unitPrice: '' })
   const [sewingCostSecondary, setSewingCostSecondary] = useState<SewingCost>({ qty: '', unitPrice: '' })
+  const [discount, setDiscount] = useState('')
   const [paymentNote, setPaymentNote] = useState(DEFAULT_PAYMENT)
-  const [closingNote, setClosingNote] = useState(DEFAULT_CLOSING)
-  const [signatoryLine, setSignatoryLine] = useState('MAW PRINTING')
-  const [signatoryName, setSignatoryName] = useState('M. A. W. Priyadarshana')
+  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const surveyCaptureRef = useRef<HTMLDivElement>(null)
   const quotationCaptureRef = useRef<HTMLDivElement>(null)
   const toastTimerRef = useRef<number>(0)
   const [copiedImage, setCopiedImage] = useState(false)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(
-    null,
-  )
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const appliedSavedSig = useRef<string | null>(null)
   const hydratedSubmissionKey = useRef<string | null>(null)
 
@@ -86,37 +79,38 @@ export function QuotationPage() {
 
   const resetFormToDefaults = useCallback(() => {
     setQuotationDate(todayIsoDate())
+    setCustomerName('')
     setCustomerAddress('')
+    setCustomerMobile('')
     setSubject('')
-    setIntroText(DEFAULT_INTRO)
     setLineItems([createEmptyLineItem()])
     setLineItemsSecondary([])
     setSewingCost({ qty: '', unitPrice: '' })
     setSewingCostSecondary({ qty: '', unitPrice: '' })
+    setDiscount('')
     setPaymentNote(DEFAULT_PAYMENT)
-    setClosingNote(DEFAULT_CLOSING)
-    setSignatoryLine('MAW PRINTING')
-    setSignatoryName('M. A. W. Priyadarshana')
+    setNotes('')
   }, [])
 
   const hydrateFromRecord = useCallback((record: QuotationRecord) => {
     const d = record.data
     setQuotationDate(d.quotationDate?.trim() || todayIsoDate())
+    setCustomerName(d.customerName ?? '')
     setCustomerAddress(d.customerAddress ?? '')
+    setCustomerMobile(d.customerMobile ?? '')
     setSubject(d.subject ?? '')
-    setIntroText(d.introText?.trim() ? d.introText : DEFAULT_INTRO)
     setLineItems(d.lineItems?.length ? d.lineItems : [createEmptyLineItem()])
     setLineItemsSecondary(d.lineItemsSecondary?.length ? d.lineItemsSecondary : [])
     setSewingCost(d.sewingCost ?? { qty: '', unitPrice: '' })
     setSewingCostSecondary(d.sewingCostSecondary ?? { qty: '', unitPrice: '' })
+    setDiscount(d.discount ?? '')
     setPaymentNote(d.paymentNote?.trim() ? d.paymentNote : DEFAULT_PAYMENT)
-    setClosingNote(d.closingNote?.trim() ? d.closingNote : DEFAULT_CLOSING)
-    setSignatoryLine(d.signatoryLine?.trim() ? d.signatoryLine : 'MAW PRINTING')
-    setSignatoryName(d.signatoryName?.trim() ? d.signatoryName : 'M. A. W. Priyadarshana')
+    setNotes(d.notes ?? '')
   }, [])
 
   const hydrateFromSubmission = useCallback((data: SurveyFormData) => {
     setQuotationDate(data.orderDate?.trim() || todayIsoDate())
+    setCustomerName(data.ownerName?.trim() || '')
     setCustomerAddress(data.address?.trim() || '')
     const subj = [data.printType, data.orderName].filter(Boolean).join(' – ')
     setSubject(subj ? subj.toUpperCase() : 'ITEMS')
@@ -161,6 +155,9 @@ export function QuotationPage() {
     hydrateFromSubmission,
   ])
 
+  const docNumber = savedQuotation?.docNumber ?? nextDocNumber
+  const docNumberDisplay = formatDocNumber(docNumber)
+
   const addRow = useCallback(() => {
     setLineItems((rows) => [...rows, createEmptyLineItem()])
   }, [])
@@ -200,38 +197,37 @@ export function QuotationPage() {
   const quotationPdfBaseName = useMemo(() => {
     const date = quotationDate?.trim() || todayIsoDate()
     const subj = subject?.trim().replace(/\s+/g, '-') || 'quotation'
-    const id = submissionId ? `-${submissionId.slice(0, 8)}` : ''
-    return `quotation-${date}-${subj}${id}`
-  }, [quotationDate, subject, submissionId])
+    return `quotation-${docNumberDisplay || 'new'}-${date}-${subj}`
+  }, [quotationDate, subject, docNumberDisplay])
 
   const buildFormData = useCallback((): QuotationFormData => {
     return {
       quotationDate,
+      customerName,
       customerAddress,
+      customerMobile,
       subject,
-      introText,
       lineItems,
       lineItemsSecondary,
       sewingCost,
       sewingCostSecondary,
+      discount,
       paymentNote,
-      closingNote,
-      signatoryLine,
-      signatoryName,
+      notes,
     }
   }, [
     quotationDate,
+    customerName,
     customerAddress,
+    customerMobile,
     subject,
-    introText,
     lineItems,
     lineItemsSecondary,
     sewingCost,
     sewingCostSecondary,
+    discount,
     paymentNote,
-    closingNote,
-    signatoryLine,
-    signatoryName,
+    notes,
   ])
 
   const handleSave = useCallback(async () => {
@@ -242,6 +238,7 @@ export function QuotationPage() {
         id: submissionId,
         submissionId: submission?.id ?? null,
         data,
+        docNumber: savedQuotation?.docNumber ?? nextDocNumber,
       })
       if (!submissionId) {
         navigate(`/quotation/${id}`, { replace: true })
@@ -252,7 +249,16 @@ export function QuotationPage() {
     } finally {
       setSaving(false)
     }
-  }, [buildFormData, navigate, saveQuotationToStore, showToast, submission?.id, submissionId])
+  }, [
+    buildFormData,
+    navigate,
+    saveQuotationToStore,
+    showToast,
+    submission?.id,
+    submissionId,
+    savedQuotation?.docNumber,
+    nextDocNumber,
+  ])
 
   const handleDownloadPdf = useCallback(async () => {
     const qEl = quotationCaptureRef.current
@@ -327,15 +333,17 @@ export function QuotationPage() {
           <Link to={backLink} className="text-sm font-medium text-blue-600 hover:text-blue-700">
             ← {submissionId ? 'Quotations' : 'Dashboard'}
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Quotation</h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+            Quotation <span className="text-slate-400">#{docNumberDisplay}</span>
+          </h1>
+          <p className="mt-1 text-xs text-slate-500">
+            {savedQuotation?.docNumber
+              ? 'Number assigned and locked.'
+              : `Number ${docNumberDisplay} will be assigned when you save.`}
+          </p>
           {quotationsFirestoreError ? (
             <p className="mt-2 text-sm text-red-600">{quotationsFirestoreError}</p>
           ) : null}
-          <p className="mt-1 text-sm text-slate-600">
-            {submission
-              ? 'Download PDF matches Print: A4, page 1 order summary, page 2 quotation. The order block is off-screen but included. Or use Print / copy image.'
-              : 'Download PDF saves the quotation as A4. With a linked order, page 1 is the order and page 2 is the quotation.'}
-          </p>
         </div>
         <div className="grid w-full max-w-md shrink-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[320px]">
           <Button type="button" className="w-full py-2.5 text-sm shadow-md" onClick={handleSave} disabled={saving}>
@@ -359,11 +367,7 @@ export function QuotationPage() {
             onClick={handleCopyImage}
             disabled={copiedImage}
           >
-            {copiedImage
-              ? 'Copied'
-              : submission
-                ? 'Copy image (order + quotation)'
-                : 'Copy as image'}
+            {copiedImage ? 'Copied' : submission ? 'Copy image (order + quotation)' : 'Copy as image'}
           </Button>
         </div>
       </div>
@@ -374,26 +378,28 @@ export function QuotationPage() {
           <FormField label="Date" htmlFor="q-date">
             <Input id="q-date" type="date" value={quotationDate} onChange={(e) => setQuotationDate(e.target.value)} />
           </FormField>
-          <FormField label="Subject (appears after QUOTATION FOR)" htmlFor="q-subject">
-            <Input
-              id="q-subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="e.g. BANNERS"
-            />
+          <FormField label="Subject (Quotation for)" htmlFor="q-subject">
+            <Input id="q-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. BANNERS" />
           </FormField>
         </div>
-        <FormField label="Customer address" htmlFor="q-addr">
+
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bill to</p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField label="Customer name" htmlFor="q-name">
+            <Input id="q-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Recipient name" />
+          </FormField>
+          <FormField label="Mobile" htmlFor="q-mobile">
+            <Input id="q-mobile" value={customerMobile} onChange={(e) => setCustomerMobile(e.target.value)} placeholder="e.g. 077 123 4567" />
+          </FormField>
+        </div>
+        <FormField label="Address" htmlFor="q-addr">
           <Textarea
             id="q-addr"
-            rows={4}
+            rows={3}
             value={customerAddress}
             onChange={(e) => setCustomerAddress(e.target.value)}
-            placeholder="Recipient name and address"
+            placeholder="Customer address"
           />
-        </FormField>
-        <FormField label="Introduction" htmlFor="q-intro">
-          <Textarea id="q-intro" rows={3} value={introText} onChange={(e) => setIntroText(e.target.value)} />
         </FormField>
 
         <div className="space-y-2">
@@ -415,26 +421,13 @@ export function QuotationPage() {
                   />
                 </FormField>
                 <FormField label="Qty" htmlFor={`q-${row.id}`}>
-                  <Input
-                    id={`q-${row.id}`}
-                    value={row.qty}
-                    onChange={(e) => updateLine(row.id, { qty: e.target.value })}
-                  />
+                  <Input id={`q-${row.id}`} value={row.qty} onChange={(e) => updateLine(row.id, { qty: e.target.value })} />
                 </FormField>
                 <FormField label="Unit price" htmlFor={`u-${row.id}`}>
-                  <Input
-                    id={`u-${row.id}`}
-                    value={row.unitPrice}
-                    onChange={(e) => updateLine(row.id, { unitPrice: e.target.value })}
-                  />
+                  <Input id={`u-${row.id}`} value={row.unitPrice} onChange={(e) => updateLine(row.id, { unitPrice: e.target.value })} />
                 </FormField>
                 <div className="flex justify-end md:pb-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={lineItems.length <= 1}
-                    onClick={() => removeRow(row.id)}
-                  >
+                  <Button type="button" variant="secondary" disabled={lineItems.length <= 1} onClick={() => removeRow(row.id)}>
                     Remove
                   </Button>
                 </div>
@@ -447,18 +440,10 @@ export function QuotationPage() {
                 </div>
               </FormField>
               <FormField label="Qty" htmlFor="sc-qty">
-                <Input
-                  id="sc-qty"
-                  value={sewingCost.qty}
-                  onChange={(e) => setSewingCost((c) => ({ ...c, qty: e.target.value }))}
-                />
+                <Input id="sc-qty" value={sewingCost.qty} onChange={(e) => setSewingCost((c) => ({ ...c, qty: e.target.value }))} />
               </FormField>
               <FormField label="Unit price" htmlFor="sc-price">
-                <Input
-                  id="sc-price"
-                  value={sewingCost.unitPrice}
-                  onChange={(e) => setSewingCost((c) => ({ ...c, unitPrice: e.target.value }))}
-                />
+                <Input id="sc-price" value={sewingCost.unitPrice} onChange={(e) => setSewingCost((c) => ({ ...c, unitPrice: e.target.value }))} />
               </FormField>
               <div className="md:pb-2" />
             </div>
@@ -467,7 +452,7 @@ export function QuotationPage() {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-slate-700">Second quotation (separate total)</p>
+            <p className="text-sm font-semibold text-slate-700">Second option (separate total)</p>
             {lineItemsSecondary.length > 0 ? (
               <div className="flex gap-2">
                 <Button type="button" variant="secondary" onClick={addSecondaryRow}>
@@ -479,7 +464,7 @@ export function QuotationPage() {
               </div>
             ) : (
               <Button type="button" variant="secondary" onClick={enableSecondQuotation}>
-                Add second quotation
+                Add second option
               </Button>
             )}
           </div>
@@ -487,10 +472,7 @@ export function QuotationPage() {
           {lineItemsSecondary.length > 0 ? (
             <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
               {lineItemsSecondary.map((row, index) => (
-                <div
-                  key={row.id}
-                  className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_5rem_7rem_auto] md:items-end"
-                >
+                <div key={row.id} className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_5rem_7rem_auto] md:items-end">
                   <FormField label={`Description ${index + 1}`} htmlFor={`d2-${row.id}`}>
                     <Textarea
                       id={`d2-${row.id}`}
@@ -500,18 +482,10 @@ export function QuotationPage() {
                     />
                   </FormField>
                   <FormField label="Qty" htmlFor={`q2-${row.id}`}>
-                    <Input
-                      id={`q2-${row.id}`}
-                      value={row.qty}
-                      onChange={(e) => updateSecondaryLine(row.id, { qty: e.target.value })}
-                    />
+                    <Input id={`q2-${row.id}`} value={row.qty} onChange={(e) => updateSecondaryLine(row.id, { qty: e.target.value })} />
                   </FormField>
                   <FormField label="Unit price" htmlFor={`u2-${row.id}`}>
-                    <Input
-                      id={`u2-${row.id}`}
-                      value={row.unitPrice}
-                      onChange={(e) => updateSecondaryLine(row.id, { unitPrice: e.target.value })}
-                    />
+                    <Input id={`u2-${row.id}`} value={row.unitPrice} onChange={(e) => updateSecondaryLine(row.id, { unitPrice: e.target.value })} />
                   </FormField>
                   <div className="flex justify-end md:pb-2">
                     <Button type="button" variant="secondary" onClick={() => removeSecondaryRow(row.id)}>
@@ -527,18 +501,10 @@ export function QuotationPage() {
                   </div>
                 </FormField>
                 <FormField label="Qty" htmlFor="sc2-qty">
-                  <Input
-                    id="sc2-qty"
-                    value={sewingCostSecondary.qty}
-                    onChange={(e) => setSewingCostSecondary((c) => ({ ...c, qty: e.target.value }))}
-                  />
+                  <Input id="sc2-qty" value={sewingCostSecondary.qty} onChange={(e) => setSewingCostSecondary((c) => ({ ...c, qty: e.target.value }))} />
                 </FormField>
                 <FormField label="Unit price" htmlFor="sc2-price">
-                  <Input
-                    id="sc2-price"
-                    value={sewingCostSecondary.unitPrice}
-                    onChange={(e) => setSewingCostSecondary((c) => ({ ...c, unitPrice: e.target.value }))}
-                  />
+                  <Input id="sc2-price" value={sewingCostSecondary.unitPrice} onChange={(e) => setSewingCostSecondary((c) => ({ ...c, unitPrice: e.target.value }))} />
                 </FormField>
                 <div className="md:pb-2" />
               </div>
@@ -546,20 +512,16 @@ export function QuotationPage() {
           ) : null}
         </div>
 
+        <FormField label="Discount (amount)" htmlFor="q-discount">
+          <Input id="q-discount" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="e.g. 5000" />
+        </FormField>
+
         <FormField label="Payment terms" htmlFor="q-pay">
           <Textarea id="q-pay" rows={2} value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)} />
         </FormField>
-        <FormField label="Closing paragraph" htmlFor="q-close">
-          <Textarea id="q-close" rows={4} value={closingNote} onChange={(e) => setClosingNote(e.target.value)} />
+        <FormField label="Notes" htmlFor="q-notes">
+          <Textarea id="q-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes shown on the quotation" />
         </FormField>
-        <div className="grid gap-4 md:grid-cols-2">
-          <FormField label="Sign-off line" htmlFor="q-sign1">
-            <Input id="q-sign1" value={signatoryLine} onChange={(e) => setSignatoryLine(e.target.value)} />
-          </FormField>
-          <FormField label="Signatory name" htmlFor="q-sign2">
-            <Input id="q-sign2" value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} />
-          </FormField>
-        </div>
       </Card>
 
       {submission ? (
@@ -570,19 +532,19 @@ export function QuotationPage() {
 
       <div ref={quotationCaptureRef} className="print:m-0 print:p-0">
         <QuotationTemplate
-          letterheadUrl={letterheadUrl}
+          docNumberDisplay={docNumberDisplay}
           quotationDate={quotationDate}
+          customerName={customerName}
           customerAddress={customerAddress}
+          customerMobile={customerMobile}
           subject={subject}
-          introText={introText}
           lineItems={lineItems}
           lineItemsSecondary={lineItemsSecondary}
           sewingCost={sewingCost}
           sewingCostSecondary={sewingCostSecondary}
+          discount={discount}
           paymentNote={paymentNote}
-          closingNote={closingNote}
-          signatoryLine={signatoryLine}
-          signatoryName={signatoryName}
+          notes={notes}
         />
       </div>
 
@@ -590,8 +552,9 @@ export function QuotationPage() {
         <div
           role="status"
           aria-live="polite"
-          className={`no-print fixed bottom-6 left-1/2 z-[100] max-w-[min(90vw,28rem)] -translate-x-1/2 rounded-lg px-4 py-3 text-sm shadow-lg ${toast.type === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'
-            }`}
+          className={`no-print fixed bottom-6 left-1/2 z-[100] max-w-[min(90vw,28rem)] -translate-x-1/2 rounded-lg px-4 py-3 text-sm shadow-lg ${
+            toast.type === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'
+          }`}
         >
           {toast.message}
         </div>

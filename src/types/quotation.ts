@@ -10,37 +10,34 @@ export type SewingCost = {
   unitPrice: string
 }
 
-export type QuotationDraft = {
+export type QuotationFormData = {
   quotationDate: string
+  customerName: string
   customerAddress: string
+  customerMobile: string
   subject: string
   lineItems: QuotationLineItem[]
   lineItemsSecondary: QuotationLineItem[]
   sewingCost: SewingCost
   sewingCostSecondary: SewingCost
+  discount: string
   paymentNote: string
-  closingNote: string
-  signatoryLine: string
-  signatoryName: string
-}
-
-export type QuotationFormData = QuotationDraft & {
-  introText: string
+  notes: string
 }
 
 export const EMPTY_QUOTATION_FORM: QuotationFormData = {
   quotationDate: '',
+  customerName: '',
   customerAddress: '',
+  customerMobile: '',
   subject: '',
-  introText: '',
   lineItems: [],
   lineItemsSecondary: [],
   sewingCost: { qty: '', unitPrice: '' },
   sewingCostSecondary: { qty: '', unitPrice: '' },
+  discount: '',
   paymentNote: '',
-  closingNote: '',
-  signatoryLine: '',
-  signatoryName: '',
+  notes: '',
 }
 
 export type QuotationRecord = {
@@ -48,6 +45,8 @@ export type QuotationRecord = {
   createdAt: string
   updatedAt: string
   financialYear: string
+  /** Shared sequential document number (invoices + quotations), assigned on first save. */
+  docNumber?: number
   submissionId: string | null
   data: QuotationFormData
 }
@@ -112,4 +111,27 @@ export function sumLineAmounts(lineItems: QuotationLineItem[]): number {
     sum += lineItemGrossAmount(row)
   }
   return sum
+}
+
+/** Money with thousands separators and 2 decimals; em dash when not positive. */
+export function formatMoney(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '—'
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+export type DocTotals = {
+  subtotal: number
+  discount: number
+  /** subtotal − discount. */
+  total: number
+}
+
+/**
+ * Totals box maths shared by invoice and quotation:
+ * total = subtotal − discount.
+ */
+export function computeDocTotals(subtotal: number, discountRaw: string): DocTotals {
+  const discount = Math.min(Math.max(0, parseAmount(discountRaw)), subtotal)
+  const net = Math.max(0, subtotal - discount)
+  return { subtotal, discount, total: net }
 }

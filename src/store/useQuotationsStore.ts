@@ -16,6 +16,8 @@ type QuotationsState = {
     id?: string
     submissionId: string | null
     data: QuotationFormData
+    /** Number to assign if this record doesn't already have one (first save). */
+    docNumber?: number
   }) => Promise<string>
   deleteQuotation: (id: string) => Promise<void>
 }
@@ -90,15 +92,17 @@ const createQuotationsSlice = (
 
   setFirestoreError: (message) => set({ firestoreError: message, firestoreReady: true }),
 
-  saveQuotation: async ({ id: inputId, submissionId, data }) => {
+  saveQuotation: async ({ id: inputId, submissionId, data, docNumber }) => {
     const id = inputId ?? submissionId ?? crypto.randomUUID()
     const now = new Date().toISOString()
     const prev = get().quotations.find((q) => q.id === id)
+    const assignedNumber = prev?.docNumber ?? docNumber
     const record: QuotationRecord = {
       id,
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
       financialYear: prev?.financialYear ?? getFinancialYearLabel(prev?.createdAt ?? now),
+      ...(typeof assignedNumber === 'number' ? { docNumber: assignedNumber } : {}),
       submissionId,
       data,
     }

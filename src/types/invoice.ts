@@ -2,26 +2,28 @@ import { createEmptyLineItem, type QuotationLineItem, type SewingCost } from './
 
 export type InvoiceFormData = {
   invoiceDate: string
+  dueDate: string
+  customerName: string
   customerAddress: string
-  introText: string
+  customerMobile: string
   lineItems: QuotationLineItem[]
   sewingCost: SewingCost
+  discount: string
   advance: string
-  closingNote: string
-  signatoryLine: string
-  signatoryName: string
+  notes: string
 }
 
 export const EMPTY_INVOICE_FORM: InvoiceFormData = {
   invoiceDate: '',
+  dueDate: '',
+  customerName: '',
   customerAddress: '',
-  introText: '',
+  customerMobile: '',
   lineItems: [],
   sewingCost: { qty: '', unitPrice: '' },
+  discount: '',
   advance: '',
-  closingNote: '',
-  signatoryLine: '',
-  signatoryName: '',
+  notes: '',
 }
 
 export type InvoiceRecord = {
@@ -29,6 +31,8 @@ export type InvoiceRecord = {
   createdAt: string
   updatedAt: string
   financialYear: string
+  /** Shared sequential document number (invoices + quotations), assigned on first save. */
+  docNumber?: number
   /** Order this invoice was opened from, if any; null for standalone invoices. */
   submissionId: string | null
   data: InvoiceFormData

@@ -202,7 +202,10 @@ export function QuotationsListPage() {
                 <Card padding="sm" className="transition hover:border-slate-300">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <Link to={`/quotation/${quot.id}`} className="min-w-0 flex-1 group">
-                      <p className="font-medium text-slate-900 group-hover:text-blue-600">{lines.title}</p>
+                      <p className="font-medium text-slate-900 group-hover:text-blue-600">
+                        {quot.docNumber ? <span className="mr-1.5 text-slate-400">#{quot.docNumber}</span> : null}
+                        {lines.title}
+                      </p>
                       <p className="mt-1 truncate text-sm text-slate-500">{lines.subtitle}</p>
                       <p className="mt-1 truncate text-xs text-slate-400">
                         {lines.metaType} · Quotation {dateLabel} — updated {formatDateTimeDotDMY(quot.updatedAt)}
