@@ -25,6 +25,7 @@ import {
   type QuotationRecord,
   type SewingCost,
 } from '../types/quotation'
+import { invoiceFormFromQuotation } from '../types/invoice'
 
 const DEFAULT_PAYMENT =
   '***A kind request to pay 60% of the total amount as an advance payment, with the balance on delivery.***'
@@ -260,6 +261,12 @@ export function QuotationPage() {
     nextDocNumber,
   ])
 
+  const handleCreateInvoice = useCallback(() => {
+    navigate('/invoice', {
+      state: { invoiceFromQuotation: invoiceFormFromQuotation(buildFormData()) },
+    })
+  }, [navigate, buildFormData])
+
   const handleDownloadPdf = useCallback(async () => {
     const qEl = quotationCaptureRef.current
     if (!qEl) return
@@ -368,6 +375,14 @@ export function QuotationPage() {
             disabled={copiedImage}
           >
             {copiedImage ? 'Copied' : submission ? 'Copy image (order + quotation)' : 'Copy as image'}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="col-span-2 w-full py-2.5 text-sm"
+            onClick={handleCreateInvoice}
+          >
+            Create invoice from this quotation
           </Button>
         </div>
       </div>

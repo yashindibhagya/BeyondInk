@@ -1,4 +1,17 @@
-import { createEmptyLineItem, type QuotationLineItem, type SewingCost } from './quotation'
+import {
+  createEmptyLineItem,
+  type QuotationFormData,
+  type QuotationLineItem,
+  type SewingCost,
+} from './quotation'
+
+export type InvoicePaymentStatus = 'unpaid' | 'advance' | 'paid'
+
+export const INVOICE_PAYMENT_STATUS_OPTIONS: { value: InvoicePaymentStatus; label: string }[] = [
+  { value: 'unpaid', label: 'Not paid' },
+  { value: 'advance', label: 'Advance paid' },
+  { value: 'paid', label: 'Paid in full' },
+]
 
 export type InvoiceFormData = {
   invoiceDate: string
@@ -10,6 +23,7 @@ export type InvoiceFormData = {
   sewingCost: SewingCost
   discount: string
   advance: string
+  paymentStatus: InvoicePaymentStatus
   notes: string
 }
 
@@ -23,6 +37,7 @@ export const EMPTY_INVOICE_FORM: InvoiceFormData = {
   sewingCost: { qty: '', unitPrice: '' },
   discount: '',
   advance: '',
+  paymentStatus: 'unpaid',
   notes: '',
 }
 
@@ -41,4 +56,26 @@ export type InvoiceRecord = {
 export function ensureLineItems(rows: QuotationLineItem[] | undefined): QuotationLineItem[] {
   if (rows?.length) return rows
   return [createEmptyLineItem()]
+}
+
+/**
+ * Prefill a new invoice from a quotation that the client approved.
+ * Carries over the customer, the primary (Option 1) line items, sewing cost,
+ * discount and notes. Invoice-specific fields (date, due date, advance) start
+ * fresh, and line items get new ids so the invoice is independent of the quotation.
+ */
+export function invoiceFormFromQuotation(q: QuotationFormData): InvoiceFormData {
+  return {
+    invoiceDate: '',
+    dueDate: '',
+    customerName: q.customerName ?? '',
+    customerAddress: q.customerAddress ?? '',
+    customerMobile: q.customerMobile ?? '',
+    lineItems: ensureLineItems(q.lineItems).map((row) => ({ ...row, id: crypto.randomUUID() })),
+    sewingCost: q.sewingCost ?? { qty: '', unitPrice: '' },
+    discount: q.discount ?? '',
+    advance: '',
+    paymentStatus: 'unpaid',
+    notes: q.notes ?? '',
+  }
 }

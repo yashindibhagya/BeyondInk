@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { InvoiceTemplate } from '../components/invoice/InvoiceTemplate'
 import { SubmissionPrintDocumentShell } from '../components/submission/SubmissionPrintView'
 import { Button } from '../components/ui/Button'
@@ -16,7 +16,12 @@ import { formatDocNumber, useNextDocNumber } from '../lib/docNumber'
 import { printOrderDocument } from '../lib/printOrderDocument'
 import { useInvoicesStore } from '../store/useInvoicesStore'
 import { useSubmissionsStore } from '../store/useSubmissionsStore'
-import type { InvoiceFormData, InvoiceRecord } from '../types/invoice'
+import {
+  INVOICE_PAYMENT_STATUS_OPTIONS,
+  type InvoiceFormData,
+  type InvoicePaymentStatus,
+  type InvoiceRecord,
+} from '../types/invoice'
 import type { SurveyFormData } from '../types/survey'
 import { createEmptyLineItem, type QuotationLineItem, type SewingCost } from '../types/quotation'
 import { formatDateDotDMY } from '../lib/dateDisplay'
@@ -29,6 +34,9 @@ function todayIsoDate() {
 export function InvoicePage() {
   const { invoiceId } = useParams<{ invoiceId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const prefillFromQuotation = (location.state as { invoiceFromQuotation?: InvoiceFormData } | null)
+    ?.invoiceFromQuotation
   const submissions = useSubmissionsStore((s) => s.submissions)
   const submissionsReady = useSubmissionsStore((s) => s.firestoreReady)
   const submission = invoiceId ? submissions.find((s) => s.id === invoiceId) : undefined
@@ -49,6 +57,7 @@ export function InvoicePage() {
   const [sewingCost, setSewingCost] = useState<SewingCost>({ qty: '', unitPrice: '' })
   const [discount, setDiscount] = useState('')
   const [advance, setAdvance] = useState('')
+  const [paymentStatus, setPaymentStatus] = useState<InvoicePaymentStatus>('unpaid')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const surveyCaptureRef = useRef<HTMLDivElement>(null)
@@ -60,6 +69,7 @@ export function InvoicePage() {
 
   const appliedSavedSig = useRef<string | null>(null)
   const hydratedSubmissionKey = useRef<string | null>(null)
+  const appliedPrefill = useRef(false)
 
   const resetFormToDefaults = useCallback(() => {
     setInvoiceDate(todayIsoDate())
@@ -71,11 +81,11 @@ export function InvoicePage() {
     setSewingCost({ qty: '', unitPrice: '' })
     setDiscount('')
     setAdvance('')
+    setPaymentStatus('unpaid')
     setNotes('')
   }, [])
 
-  const hydrateFromRecord = useCallback((record: InvoiceRecord) => {
-    const d = record.data
+  const hydrateFromInvoiceData = useCallback((d: InvoiceFormData) => {
     setInvoiceDate(d.invoiceDate?.trim() || todayIsoDate())
     setDueDate(d.dueDate ?? '')
     setCustomerName(d.customerName ?? '')
@@ -85,8 +95,14 @@ export function InvoicePage() {
     setSewingCost(d.sewingCost ?? { qty: '', unitPrice: '' })
     setDiscount(d.discount ?? '')
     setAdvance(d.advance ?? '')
+    setPaymentStatus(d.paymentStatus ?? 'unpaid')
     setNotes(d.notes ?? '')
   }, [])
+
+  const hydrateFromRecord = useCallback(
+    (record: InvoiceRecord) => hydrateFromInvoiceData(record.data),
+    [hydrateFromInvoiceData],
+  )
 
   const hydrateFromSubmission = useCallback((data: SurveyFormData) => {
     setInvoiceDate(data.orderDate?.trim() || todayIsoDate())
@@ -99,6 +115,13 @@ export function InvoicePage() {
     if (!invoiceId) {
       appliedSavedSig.current = null
       hydratedSubmissionKey.current = null
+      if (prefillFromQuotation) {
+        if (!appliedPrefill.current) {
+          hydrateFromInvoiceData(prefillFromQuotation)
+          appliedPrefill.current = true
+        }
+        return
+      }
       resetFormToDefaults()
       return
     }
@@ -124,7 +147,16 @@ export function InvoicePage() {
     }
 
     hydratedSubmissionKey.current = null
-  }, [invoiceId, savedInvoice, submissions, resetFormToDefaults, hydrateFromRecord, hydrateFromSubmission])
+  }, [
+    invoiceId,
+    savedInvoice,
+    submissions,
+    prefillFromQuotation,
+    resetFormToDefaults,
+    hydrateFromRecord,
+    hydrateFromInvoiceData,
+    hydrateFromSubmission,
+  ])
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     window.clearTimeout(toastTimerRef.current)
@@ -152,6 +184,7 @@ export function InvoicePage() {
       sewingCost,
       discount,
       advance,
+      paymentStatus,
       notes,
     }
   }, [
@@ -164,6 +197,7 @@ export function InvoicePage() {
     sewingCost,
     discount,
     advance,
+    paymentStatus,
     notes,
   ])
 
@@ -428,6 +462,28 @@ export function InvoicePage() {
           </FormField>
         </div>
 
+        <FormField label="Payment status" hint="Shown as a badge on the invoice.">
+          <div className="flex flex-wrap gap-2">
+            {INVOICE_PAYMENT_STATUS_OPTIONS.map((option) => {
+              const active = paymentStatus === option.value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setPaymentStatus(option.value)}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                    active
+                      ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>
+        </FormField>
+
         <FormField label="Notes" htmlFor="inv-notes">
           <Textarea id="inv-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes shown on the invoice" />
         </FormField>
@@ -451,6 +507,7 @@ export function InvoicePage() {
           sewingCost={sewingCost}
           discount={discount}
           advance={advance}
+          paymentStatus={paymentStatus}
           notes={notes}
         />
       </div>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
@@ -10,6 +10,7 @@ import { getCurrentFinancialYearLabel, isWithinLastNDays } from '../lib/financia
 import { useQuotationsStore } from '../store/useQuotationsStore'
 import { useSubmissionsStore } from '../store/useSubmissionsStore'
 import type { QuotationRecord } from '../types/quotation'
+import { invoiceFormFromQuotation } from '../types/invoice'
 import type { Submission } from '../types/survey'
 
 const PRINT_TYPE_OPTIONS = ['All', 'Embroidery', 'Sublimation', 'Screen Print', 'Sticker']
@@ -42,6 +43,7 @@ export function QuotationsListPage() {
   const firestoreReady = useQuotationsStore((s) => s.firestoreReady)
   const firestoreError = useQuotationsStore((s) => s.firestoreError)
   const submissions = useSubmissionsStore((s) => s.submissions)
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [printType, setPrintType] = useState('All')
   const [timeFilter, setTimeFilter] = useState('all')
@@ -224,6 +226,16 @@ export function QuotationsListPage() {
                           Edit
                         </Button>
                       )}
+                      <Button
+                        variant="secondary"
+                        onClick={() =>
+                          navigate('/invoice', {
+                            state: { invoiceFromQuotation: invoiceFormFromQuotation(quot.data) },
+                          })
+                        }
+                      >
+                        Create invoice
+                      </Button>
                       <Button
                         variant="danger"
                         onClick={() => {
