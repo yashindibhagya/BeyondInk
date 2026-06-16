@@ -507,7 +507,6 @@ export function InvoicePage() {
           sewingCost={sewingCost}
           discount={discount}
           advance={advance}
-          paymentStatus={paymentStatus}
           notes={notes}
         />
       </div>

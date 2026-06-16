@@ -13,6 +13,16 @@ export const INVOICE_PAYMENT_STATUS_OPTIONS: { value: InvoicePaymentStatus; labe
   { value: 'paid', label: 'Paid in full' },
 ]
 
+/** Label + pill styling for the internal-reference badge on the invoices list. */
+export const INVOICE_PAYMENT_STATUS_BADGE: Record<
+  InvoicePaymentStatus,
+  { label: string; className: string }
+> = {
+  paid: { label: 'Paid in full', className: 'border-green-200 bg-green-50 text-green-700' },
+  advance: { label: 'Advance paid', className: 'border-amber-200 bg-amber-50 text-amber-700' },
+  unpaid: { label: 'Not paid', className: 'border-red-200 bg-red-50 text-red-700' },
+}
+
 export type InvoiceFormData = {
   invoiceDate: string
   dueDate: string

@@ -7,7 +7,6 @@ import {
   type TotalRow,
 } from '../letterhead/LetterheadParts'
 import { buildDisplayItems } from '../letterhead/buildDisplayItems'
-import type { InvoicePaymentStatus } from '../../types/invoice'
 import type { QuotationLineItem, SewingCost } from '../../types/quotation'
 import {
   computeDocTotals,
@@ -28,7 +27,6 @@ type Props = {
   sewingCost?: SewingCost
   discount: string
   advance: string
-  paymentStatus: InvoicePaymentStatus
   notes: string
 }
 
@@ -37,12 +35,6 @@ const TERMS = [
   'Goods once sold are not returnable.',
   'Thank you for your business!',
 ]
-
-const PAYMENT_BADGE: Record<InvoicePaymentStatus, { label: string; className: string }> = {
-  paid: { label: 'Paid in Full', className: 'border-green-600 text-green-700' },
-  advance: { label: 'Advance Paid', className: 'border-amber-600 text-amber-700' },
-  unpaid: { label: 'Not Paid', className: 'border-red-600 text-red-700' },
-}
 
 export function InvoiceTemplate({
   docNumberDisplay,
@@ -55,10 +47,8 @@ export function InvoiceTemplate({
   sewingCost,
   discount,
   advance,
-  paymentStatus,
   notes,
 }: Props) {
-  const paymentBadge = PAYMENT_BADGE[paymentStatus] ?? PAYMENT_BADGE.unpaid
   const sewingGross =
     sewingCost?.qty.trim() && sewingCost?.unitPrice.trim()
       ? lineItemGrossAmount({ id: 'sc', description: '', qty: sewingCost.qty, unitPrice: sewingCost.unitPrice })
@@ -88,12 +78,8 @@ export function InvoiceTemplate({
           ]}
         />
 
-        <div className="mt-6 flex items-start justify-between gap-6">
+        <div className="mt-6">
           <BillToBlock name={customerName} address={customerAddress} mobile={customerMobile} />
-          <div className={`shrink-0 rounded-md border-2 px-4 py-2 text-center ${paymentBadge.className}`}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Payment Status</p>
-            <p className="mt-0.5 text-sm font-bold uppercase tracking-wider">{paymentBadge.label}</p>
-          </div>
         </div>
 
         <div className="mt-5">

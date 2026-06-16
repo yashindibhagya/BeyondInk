@@ -9,7 +9,7 @@ import { firebaseDb } from '../lib/firebase'
 import { getCurrentFinancialYearLabel, isWithinLastNDays } from '../lib/financialYear'
 import { useInvoicesStore } from '../store/useInvoicesStore'
 import { useSubmissionsStore } from '../store/useSubmissionsStore'
-import type { InvoiceRecord } from '../types/invoice'
+import { INVOICE_PAYMENT_STATUS_BADGE, type InvoiceRecord } from '../types/invoice'
 import type { Submission } from '../types/survey'
 
 const PRINT_TYPE_OPTIONS = ['All', 'Embroidery', 'Sublimation', 'Screen Print', 'Sticker']
@@ -192,14 +192,20 @@ export function InvoicesListPage() {
             const lines = cardLines(inv, submissionById)
             const linkedOrder = inv.submissionId ? submissionById.get(inv.submissionId) : undefined
             const dateLabel = formatDateDotDMY(inv.data.invoiceDate?.trim() || inv.createdAt.slice(0, 10))
+            const paymentBadge = INVOICE_PAYMENT_STATUS_BADGE[inv.data.paymentStatus ?? 'unpaid']
             return (
               <li key={inv.id}>
                 <Card padding="sm" className="transition hover:border-slate-300">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <Link to={`/invoice/${inv.id}`} className="min-w-0 flex-1 group">
-                      <p className="font-medium text-slate-900 group-hover:text-blue-600">
-                        {inv.docNumber ? <span className="mr-1.5 text-slate-400">#{inv.docNumber}</span> : null}
-                        {lines.title}
+                      <p className="flex flex-wrap items-center gap-2 font-medium text-slate-900 group-hover:text-blue-600">
+                        {inv.docNumber ? <span className="text-slate-400">#{inv.docNumber}</span> : null}
+                        <span>{lines.title}</span>
+                        <span
+                          className={`no-print shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${paymentBadge.className}`}
+                        >
+                          {paymentBadge.label}
+                        </span>
                       </p>
                       <p className="mt-1 truncate text-sm text-slate-500">{lines.subtitle}</p>
                       <p className="mt-1 truncate text-xs text-slate-400">
