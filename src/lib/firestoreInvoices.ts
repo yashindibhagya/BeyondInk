@@ -116,6 +116,8 @@ export async function saveInvoiceToFirestore(record: InvoiceRecord): Promise<voi
     discount: record.data.discount ?? '',
     advance: record.data.advance,
     paymentStatus: record.data.paymentStatus ?? 'unpaid',
+    given: record.data.given ?? '',
+    profit: record.data.profit ?? '',
     notes: record.data.notes ?? '',
     lineItems: ensureLineItems(record.data.lineItems),
     sewingCost: record.data.sewingCost ?? { qty: '', unitPrice: '' },
